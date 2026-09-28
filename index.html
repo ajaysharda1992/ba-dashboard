@@ -1203,7 +1203,18 @@ async function loadBotData(){
 }
 function renderBot(){
   const d=BOT_DATA; if(!d) return;
-  const hist=d.history||[], op=d.open||[];
+  const op=d.open||[];
+// FIX: exclude open trades that leaked into history as fake -1R losses
+const openKeys=new Set(op.map(o=>(o.sym||'')+'|'+(o.dir||'')+'|'+(o.entry??'')));
+const openSyms=new Set(op.map(o=>(o.sym||'')));
+const hist=(d.history||[]).filter(h=>{
+  const key=(h.sym||'')+'|'+(h.dir||'')+'|'+(h.entry??'');
+  if(openKeys.has(key)) return false;
+  const closed = h.exitTime!==undefined && h.exitTime!==null && h.exitTime!=='';
+  if(!closed && openSyms.has(h.sym)) return false;
+  if(!closed && (h.resultR===-1)) return false;
+  return true;
+});
   // seed sweep ledger from bot history when local ledger is empty (new device/origin)
   if(!SIG_HIST.length && hist.length){
     SIG_HIST = hist.slice(-100).reverse().map(h=>({
