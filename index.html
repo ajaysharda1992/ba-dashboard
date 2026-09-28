@@ -947,7 +947,7 @@ async function fetchPairLiq(sym){
   let vs=0; for(let i=k.length-21;i<k.length-1;i++){ vs+=+k[i][5]; }
   const vavg=vs/20;
   if(atr<=0||vavg<=0) return null;
-  for(let i=k.length-2;i>=Math.max(60,k.length-75);i--){
+  for(let i=k.length-2;i>=Math.max(60,k.length-12);i--){
     for(let st=i-4;st<=i-2;st++){
       if(st<1) continue;
       // UP impulse
