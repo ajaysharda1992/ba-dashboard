@@ -1215,7 +1215,16 @@ const hist=(d.history||[]).filter(h=>{
   if(!closed && (h.resultR===-1)) return false;
   return true;
 });
-  // seed sweep ledger from bot history when local ledger is empty (new device/origin)
+ // FIX part 2: add back the P&L of fake rows we hid, so Equity matches the clean ledger
+const fakePnl=(d.history||[]).filter(h=>{
+  const key=(h.sym||'')+'|'+(h.dir||'')+'|'+(h.entry??'');
+  if(openKeys.has(key)) return true;
+  const closed=h.exitTime!==undefined && h.exitTime!==null && h.exitTime!=='';
+  if(!closed && openSyms.has(h.sym)) return true;
+  if(!closed && (h.resultR===-1)) return true;
+  return false;
+}).reduce((a,h)=>a+(h.pnl||0),0); 
+ // seed sweep ledger from bot history when local ledger is empty (new device/origin)
   if(!SIG_HIST.length && hist.length){
     SIG_HIST = hist.slice(-100).reverse().map(h=>({
       sym:(h.sym||'').replace('USDT',''), dir:h.dir, entry:h.entry, sl:h.sl, tp:h.tp,
@@ -1229,7 +1238,7 @@ const hist=(d.history||[]).filter(h=>{
   const sumR=hist.reduce((a,h)=>a+(h.resultR||0),0);
   const pnl=hist.reduce((a,h)=>a+(h.pnl||0),0);
   document.getElementById('botSummary').innerHTML=
-    sumCard('Equity', 'Rs.'+Math.round(d.equity||0).toLocaleString('en-IN'))+
+    sumCard('Equity', 'Rs.'+Math.round((d.equity||0)-fakePnl).toLocaleString('en-IN'))+
     sumCard('Open', op.length)+
     sumCard('Closed', hist.length)+
     sumCard('Win %', (tp+slc)?Math.round(tp/(tp+slc)*100)+'%':'—')+
