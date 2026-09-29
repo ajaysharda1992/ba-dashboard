@@ -8,7 +8,7 @@ URL = "https://fapi.binance.com/fapi/v1/klines?symbol={}&interval=15m&limit=300"
 COINS = ["BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT","DOGEUSDT","ADAUSDT",
          "AVAXUSDT","LINKUSDT","TRXUSDT","DOTUSDT","LTCUSDT","NEARUSDT","UNIUSDT",
          "ATOMUSDT","ARBUSDT","SUIUSDT","PEPEUSDT","WIFUSDT","BCHUSDT"]
-S = dict(struct=0, bos=0, l5=0, recent=0, retrace=0, bounds=0, live=0, coins_with_struct=set())
+S = dict(struct=0, bos=0, l5=0, recent=0, retrace=0, bounds=0, live=0, coins=set())
 
 def swings15(k):
     s=[]
@@ -30,7 +30,6 @@ def audit_coin(sym):
     if len(s) < 8: return
     atr = sum(float(closed[i][2])-float(closed[i][3]) for i in range(len(closed)-15, len(closed)-1))/14
     if atr <= 0: return
-    vavg = sum(float(x[5]) for x in closed[-21:-1])/20
     n = len(s)
     for bull in (True, False):
         for c in range(n-1, -1, -1):
@@ -41,7 +40,7 @@ def audit_coin(sym):
                     if s[a]["t"] != ("H" if bull else "L"): continue
                     for q in range(a-1, max(0,a-50), -1):
                         if s[q]["t"] != ("L" if bull else "H"): continue
-                        S["struct"] += 1; S["coins_with_struct"].add(sym)
+                        S["struct"] += 1; S["coins"].add(sym)
                         if bull:
                             if not (s[bb]["p"] < s[q]["p"] - 0.3*atr): continue
                             if not (s[c]["p"] > s[a]["p"] + 0.3*atr): continue
@@ -85,15 +84,14 @@ for sym in COINS:
 
 print()
 print("=== QML PIPELINE AUDIT (top-20 coins, 300 x 15m candles each) ===")
-print(f"1. QM structure found (5 swings in shape)     : {S[\"struct\"]}")
-print(f"2. ... + BOS break confirmed                  : {S[\"bos\"]}")
-print(f"3. ... + pullback extreme valid (holds level) : {S[\"l5\"]}")
-print(f"4. ... + pullback within last 10h             : {S[\"recent\"]}")
-print(f"5. ... + price retraced INTO the QM zone      : {S[\"retrace\"]}")
-print(f"6. ... + risk bounds ok (0.2-2.5%)            : {S[\"bounds\"]}")
-print(f"7. ... + still unresolved (tradable NOW)      : {S[\"live\"]}")
-print(f"coins showing QM structure at all: {len(S[\"coins_with_struct\"])}")
+for label, key in [("1. QM structure found (5 swings in shape)    ", "struct"),
+                   ("2. ... + BOS break confirmed                 ", "bos"),
+                   ("3. ... + pullback extreme valid (holds level)", "l5"),
+                   ("4. ... + pullback within last 10h            ", "recent"),
+                   ("5. ... + price retraced INTO the QM zone     ", "retrace"),
+                   ("6. ... + risk bounds ok (0.2-2.5%)           ", "bounds"),
+                   ("7. ... + still unresolved (tradable NOW)     ", "live")]:
+    print(label + ": " + str(S[key]))
+print("coins showing QM structure at all:", len(S["coins"]))
 print()
-print("Reading: if stages 1-2 are healthy but 7 = 0, the detector works and")
-print("patterns are dying at a specific filter (see which number drops hardest).")
-print("If stage 1 = 0, the structure scanner itself needs loosening.")
+print("Reading: find the stage where the count collapses - that filter is the bottleneck.")
