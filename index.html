@@ -302,7 +302,7 @@ footer.site-footer{ color:inherit; }
       <thead><tr><th>Coin</th><th>Pattern</th><th>Status</th><th>Entry · SL · TP</th><th>Vol ×</th><th>Grade</th><th>🐋 Inst.</th><th>Live</th></tr></thead>
       <tbody id="qmlRows"></tbody>
     </table></div>
-    <div class="meta" style="margin-top:10px;">Classic 5-point QM (pts 1–5) on the 15m chart · point 4 must break point 2 (BOS) with ≥1.5× impulse volume · entry at the broken level (QM zone) · SL beyond the pattern extreme · TP 1:2 · direction gated by BTC 1H trend · 🪤 trap setups removed</div>
+    <div class="meta" style="margin-top:10px;">Classic 5-point QM (pts 1–5) on the 15m chart · point 4 must break point 2 (BOS) with ≥1.5× impulse volume · entry at the broken level (QM zone) · SL beyond the pattern extreme · TP 1:2 · direction gated by BTC 4H trend · 🪤 trap setups removed</div>
     <div style="margin-top:26px;">
       <div class="panel-title" style="font-size:13px;">📋 QML Ledger</div>
       <div id="qmlHistStatus" style="text-align:center;color:#8B94A7;padding:10px;font-size:13px;">📋 QML ledger — logs every 🔥 AT-LEVEL entry · results auto-tracked hourly</div>
@@ -1590,13 +1590,13 @@ function detectQM15(k){
 }
 async function fetchQmlRegime(){
   try{
-    const r=await fetch("https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=1h&limit=50");
+    const r=await fetch("https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=4h&limit=100");
     const k=await r.json();
     if(Array.isArray(k)&&k.length>25){
       const m=2/21; let ema=+k[0][4];
       for(let i=1;i<k.length-1;i++){ ema=((+k[i][4])-ema)*m+ema; }
       const last=+k[k.length-2][4];
-      QML_REGIME = last>ema*1.003 ? 'LONG' : last<ema*0.997 ? 'SHORT' : 'BOTH';
+      QML_REGIME = last>ema*1.005 ? 'LONG' : last<ema*0.995 ? 'SHORT' : 'BOTH';
     }
   }catch(e){ QML_REGIME='BOTH'; }
 }
@@ -1663,8 +1663,8 @@ async function runQml(auto){
       window.BTC15C = Array.isArray(bt) ? bt.map(x=>+x[4]) : null;
     }catch(e){ window.BTC15C=null; }
     document.getElementById('qmlRegime').textContent =
-      QML_REGIME==='LONG' ? '🟢 BTC 1H uptrend — BULLISH QML only' :
-      QML_REGIME==='SHORT' ? '🔴 BTC 1H downtrend — BEARISH QML only' : '⚪ BTC 1H mixed — both patterns';
+      QML_REGIME==='LONG' ? '🟢 BTC 4H uptrend — BULLISH QML only' :
+      QML_REGIME==='SHORT' ? '🔴 BTC 4H downtrend — BEARISH QML only' : '⚪ BTC 4H mixed — both patterns';
     const results=[]; let done=0, qfailed=0; const kmap={}; const queue=PAIRS.slice();
     async function worker(){
       while(queue.length){
@@ -1673,7 +1673,7 @@ async function runQml(auto){
           const r=await fetchPairQml(s);
           if(r){ kmap[s]=1;
             const rb=(QML_REGIME==='LONG'&&r.dir!=='LONG')||(QML_REGIME==='SHORT'&&r.dir!=='SHORT');
-            if(!(rb&&Math.abs(r.corr)>=0.45)) results.push(r);   // BTC-followers obey regime; independent coins trade freely
+            if(!(rb&&Math.abs(r.corr)>=0.55)) results.push(r);   // BTC-followers obey regime; independent coins trade freely
           }
           else qfailed++;
         }catch(e){ qfailed++; }
