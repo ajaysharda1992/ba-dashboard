@@ -1077,7 +1077,7 @@ function applyViewLiqHist(){
     if(x.status==='TP') res='<span style=\"color:#2ecc71;font-weight:800;\">TP +'+(+x.resultR).toFixed(2)+'R</span>';
     else if(x.status==='SL') res='<span style=\"color:#E5484D;font-weight:800;\">SL -1R</span>';
     else res='<span style=\"color:#C9A227;\">running</span>';
-    const tm=new Date(x.t).toLocaleString(\"en-IN\",{timeZone:\"Asia/Kolkata\",day:\"2-digit\",month:\"short\",hour:\"2-digit\",minute:\"2-digit\",hour12:false});
+    const tm=new Date(x.t).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",hour12:false});
     return '<tr><td class=\"coin\">'+x.sym+'</td><td class=\"'+(LONG?'bull':'bear')+'\">'+(LONG?'LONG':'SHORT')+'</td><td class=\"num\">'+tm+'</td><td style=\"white-space:nowrap;\">'+res+'</td></tr>';
   }).join('');
   tbl.style.display='table';
