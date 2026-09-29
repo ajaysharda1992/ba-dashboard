@@ -1287,7 +1287,9 @@ const fakePnl=(d.history||[]).filter(h=>{
   return false;
 }).reduce((a,h)=>a+(h.pnl||0),0); 
  // seed sweep ledger from bot history when local ledger is empty (new device/origin)
-  try{ // MERGE bot history into local ledger (add missing trades, keep existing)
+  try{ // SYNC bot history with local ledger: add missing + REMOVE stale bot-sourced entries
+    const botKeys=new Set(hist.map(h=>(h.sym||'').replace('USDT','')+'|'+h.dir+'|'+h.entry+'|'+h.resultR));
+    SIG_HIST=SIG_HIST.filter(r=>r.sweep!=='(from bot)'||botKeys.has(r.sym+'|'+r.dir+'|'+r.entry+'|'+r.resultR));
     const have=new Set(SIG_HIST.map(r=>r.sym+'|'+r.dir+'|'+r.entry+'|'+r.resultR));
     let added=0;
     hist.slice(-100).forEach(h=>{
