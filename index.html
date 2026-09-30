@@ -293,7 +293,7 @@ footer.site-footer{ color:inherit; }
       <input oninput="setSearchQml(this.value)" placeholder="🔍 Search coin…" style="flex:1;min-width:150px;max-width:260px;background:#1A2230;color:#EAEAEA;border:1px solid #d4af37;border-radius:8px;padding:10px 14px;font-size:14px;font-family:inherit;">
       <select id="qmlFilterSel" onchange="qmlFilter=this.value; applyViewQml();" style="background:#1A2230;color:#f5d76e;border:1px solid #d4af37;border-radius:8px;padding:9px 12px;font-size:12.5px;font-family:inherit;">
         <option value="all" selected>Show: all patterns</option>
-        <option value="live">Show: tradeable now (AT LEVEL only)</option>
+        <option value="live">Show: RETEST only</option>
       </select>
     </div>
     <div id="qmlStatus" style="text-align:center;color:#8B94A7;padding:12px;font-size:13.5px;">Strict Quasimodo — 15m chart only · refreshes every 15 min + on tab open</div>
@@ -1410,14 +1410,14 @@ const fakePnl=(d.history||[]).filter(h=>{
     if(qs.length){
       qRows.innerHTML=qs.map(s=>{
         const LONG=s.dir==='LONG';
-        const st= s.status==='AT LEVEL' ? '<span style="color:#2ecc71;font-weight:800;">🔥 AT LEVEL</span>'
+        const st= s.status==='RETEST' ? '<span style="color:#2ecc71;font-weight:800;">🔥 RETEST '+(s.score!=null?s.score+'/8':'')+'</span>' : s.status==='ARMED' ? '<span style="color:#C9A227;font-weight:700;">🟡 ARMED '+(s.score!=null?s.score+'/8':'')+'</span>'
                : s.status==='APPROACHING' ? '<span style="color:#C9A227;">👀 approaching</span>'
                : '<span style="color:#8B94A7;">⏳ forming</span>';
         return `<tr><td class="coin">${s.sym.replace('USDT','')}</td>
          <td class="${LONG?'bull':'bear'}" style="font-weight:700;">${LONG?'▲ LONG':'▼ SHORT'}</td>
          <td style="white-space:nowrap;">${st}</td>
          <td class="num">${fmtP(s.qm)} · <span style="color:#E5484D;">${fmtP(s.sl)}</span> · <span style="color:#2ecc71;">${fmtP(s.tp)}</span></td>
-         <td>${s.grade||''}</td></tr>`;
+         <td>${s.grade||''} ${s.score!=null?s.score+'/8':''}</td></tr>`;
       }).join('');
       qTbl.style.display='table';
       document.getElementById('botQmlSigStatus').textContent='VPS QML bot: '+qs.length+' pattern(s) on 15m · scanned '+qs[0].t+' IST · refreshes every 30 min';
@@ -1506,104 +1506,96 @@ function swings15(k){
   }
   return s;
 }
-function detectQM15(k){
+function detectQM15(k, regime){
+  // QML v2: raw structure + quality score. BEAR: P1=H, P2=L, P3=H>P1, P4 CLOSE<P2. QML level=P1.
   const closed=k.slice(0,-1);
+  if(closed.length<40) return null;
   const s=swings15(closed);
-  const cur=+closed[closed.length-1][4];
+  if(s.length<4) return null;
   let atr=0; for(let i=closed.length-15;i<closed.length-1;i++) atr+=(+closed[i][2]-+closed[i][3]);
   atr/=14;
-  if(atr<=0||s.length<8) return null;
+  if(atr<=0) return null;
   let vavg=0; for(let i=Math.max(0,closed.length-21);i<closed.length-1;i++) vavg+=+closed[i][5];
   vavg/=20;
-  const n=s.length;
-  // BULLISH QM: L1 -> H2 -> L3 (lower low) -> H4 (BOS above H2) -> L5 pullback; buy zone = H2
-  outerB:
-  for(let c=n-1;c>=0;c--){
-    if(s[c].t!=='H'||closed.length-s[c].i>160) continue;
-    for(let b=c-1;b>=Math.max(0,c-50);b--){
-      if(s[b].t!=='L') continue;
-      for(let a=b-1;a>=Math.max(0,b-50);a--){
-        if(s[a].t!=='H') continue;
-        for(let q=a-1;q>=Math.max(0,a-50);q--){
-          if(s[q].t!=='L') continue;
-          if(!(s[b].p < s[q].p - 0.3*atr)) continue;      // L3 clearly below L1
-          if(!(s[c].p > s[a].p + 0.3*atr)) continue;      // H4 breaks above H2 (BOS)
-          let L5=Infinity,l5i=-1;
-          for(let j=s[c].i+1;j<closed.length;j++){ if(+closed[j][3]<L5){L5=+closed[j][3];l5i=j;} }
-          if(l5i<0 || L5 < s[b].p) continue;              // must hold above L3
-          if(closed.length-l5i>40) continue;              // pullback must be recent (<=10h)
-          if(L5 > s[a].p + 0.5*atr) continue;             // price must have RETRACED to the QM zone
-          const qm=s[a].p;
-          const risk=qm-L5;
-          if(risk<=0||risk/qm<0.002||risk/qm>0.025) continue;   // tight intraday patterns only
-          const tp=qm+2*risk;
-          let resolved=null;
-          for(let j=l5i;j<closed.length;j++){ const hh=+closed[j][2], ll=+closed[j][3];
-            if(ll<=sl){ resolved='SL'; break; }
-            if(hh>=tp){ resolved='TP'; break; } }
-          const dist=(cur-qm)/qm*100;
-          const status = (dist<=0.4&&cur>=L5)?'AT LEVEL':(dist<=1.2?'APPROACHING':'FORMING');
-          let vmax=0; for(let j=s[c].i;j<closed.length;j++) vmax=Math.max(vmax,+closed[j][5]);
-          const volOK=vmax>=1.5*vavg;
-          return {dir:'LONG',status,qm,sl:L5,risk,volX:vavg>0?vmax/vavg:0,volOK,
-                  tp,resolved,grade:(volOK&&status!=='FORMING')?'A':'B',t:closed[closed.length-1][6]};
-        }
+  const cur=+closed[closed.length-1][4];
+  const n=s.length, SLIP=0.001, ZONE=0.15, MAXB=96, MAXD=3.0, MAXR=0.025;
+  function build(bear, i1, i2, i3, p4i){
+    const P1=s[i1].p, P2=s[i2].p, P3=s[i3].p;
+    const sl=bear?P3*(1+SLIP):P3*(1-SLIP);
+    const tp=P2, entry=P1;
+    const risk=Math.abs(entry-sl);
+    if(risk<=0 || risk/entry>MAXR) return null;
+    const zlo=entry-ZONE*atr, zhi=entry+ZONE*atr;
+    let dead=false, touches=0;
+    for(let j=p4i+1;j<closed.length;j++){
+      const hh=+closed[j][2], ll=+closed[j][3], cc=+closed[j][4];
+      if((bear&&cc>P3)||((!bear)&&cc<P3)){ dead=true; break; }
+      if(hh>=zlo&&ll<=zhi) touches++;
+    }
+    if(dead) return null;
+    let status;
+    if(touches>=2) status='USED';
+    else if(touches===1) status='RETEST';
+    else {
+      if(closed.length-1-p4i>MAXB) return null;
+      if(Math.abs(cur-entry)>MAXD*atr) return null;
+      status='ARMED';
+    }
+    let score=2;
+    const disp=Math.abs(+closed[p4i][4]-P3)/atr;
+    if(disp>=0.5) score++;
+    const v=Math.max(+closed[p4i][5], +closed[s[i3].i][5]);
+    const volX=vavg>0?v/vavg:0;
+    if(volX>=1.2) score++;
+    if(volX>=1.5) score++;
+    if((regime==='SHORT'&&bear)||(regime==='LONG'&&(!bear))) score++;
+    if(status==='RETEST') score++;
+    const rr=Math.abs(tp-entry)/risk;
+    if(rr>=2) score++;
+    return {dir:bear?'SHORT':'LONG', status:status, qm:entry, p1:P1, p2:P2, p3:P3, p4:+closed[p4i][4],
+            sl:sl, tp:tp, zone_lo:zlo, zone_hi:zhi, score:score, disp:+disp.toFixed(2),
+            volX:+volX.toFixed(2), rr:+rr.toFixed(2), grade:score>=6?'A':'B'};
+  }
+  const W=30;
+  for(let i1=n-1;i1>=0;i1--){
+    if(s[i1].t!=='H') continue;
+    const P1=s[i1].p;
+    for(let i2=i1+1;i2<Math.min(n,i1+W);i2++){
+      if(s[i2].t!=='L') continue;
+      const P2=s[i2].p;
+      for(let i3=i2+1;i3<Math.min(n,i2+W);i3++){
+        if(s[i3].t!=='H'||s[i3].p<=P1) continue;
+        let p4i=-1;
+        for(let j=s[i3].i+1;j<closed.length;j++){ if(+closed[j][4]<P2){ p4i=j; break; } }
+        if(p4i<0) continue;
+        const r=build(true,i1,i2,i3,p4i);
+        if(r) return r;
       }
     }
   }
-  // BEARISH QM: H1 -> L2 -> H3 (higher high) -> L4 (BOS below L2) -> H5 pullback; sell zone = L2
-  outerS:
-  for(let c=n-1;c>=0;c--){
-    if(s[c].t!=='L'||closed.length-s[c].i>160) continue;
-    for(let b=c-1;b>=Math.max(0,c-50);b--){
-      if(s[b].t!=='H') continue;
-      for(let a=b-1;a>=Math.max(0,b-50);a--){
-        if(s[a].t!=='L') continue;
-        for(let q=a-1;q>=Math.max(0,a-50);q--){
-          if(s[q].t!=='H') continue;
-          if(!(s[b].p > s[q].p + 0.3*atr)) continue;      // H3 above H1
-          if(!(s[c].p < s[a].p - 0.3*atr)) continue;      // L4 breaks below L2 (BOS)
-          let H5=0,h5i=-1;
-          for(let j=s[c].i+1;j<closed.length;j++){ if(+closed[j][2]>H5){H5=+closed[j][2];h5i=j;} }
-          if(h5i<0 || H5 > s[b].p) continue;              // must hold below H3
-          if(closed.length-h5i>40) continue;              // pullback must be recent (<=10h)
-          if(H5 < s[a].p - 0.5*atr) continue;             // price must have RETRACED to the QM zone
-          const qm=s[a].p;
-          const risk=H5-qm;
-          if(risk<=0||risk/qm<0.002||risk/qm>0.025) continue;   // tight intraday patterns only
-          const tp=qm-2*risk;
-          let resolved=null;
-          for(let j=h5i;j<closed.length;j++){ const hh=+closed[j][2], ll=+closed[j][3];
-            if(hh>=sl){ resolved='SL'; break; }
-            if(ll<=tp){ resolved='TP'; break; } }
-          const dist=(qm-cur)/qm*100;
-          const status = (dist<=0.4&&cur<=H5)?'AT LEVEL':(dist<=1.2?'APPROACHING':'FORMING');
-          let vmax=0; for(let j=s[c].i;j<closed.length;j++) vmax=Math.max(vmax,+closed[j][5]);
-          const volOK=vmax>=1.5*vavg;
-          return {dir:'SHORT',status,qm,sl:H5,risk,volX:vavg>0?vmax/vavg:0,volOK,
-                  tp,resolved,grade:(volOK&&status!=='FORMING')?'A':'B',t:closed[closed.length-1][6]};
-        }
+  for(let i1=n-1;i1>=0;i1--){
+    if(s[i1].t!=='L') continue;
+    const P1=s[i1].p;
+    for(let i2=i1+1;i2<Math.min(n,i1+W);i2++){
+      if(s[i2].t!=='H') continue;
+      const P2=s[i2].p;
+      for(let i3=i2+1;i3<Math.min(n,i2+W);i3++){
+        if(s[i3].t!=='L'||s[i3].p>=P1) continue;
+        let p4i=-1;
+        for(let j=s[i3].i+1;j<closed.length;j++){ if(+closed[j][4]>P2){ p4i=j; break; } }
+        if(p4i<0) continue;
+        const r=build(false,i1,i2,i3,p4i);
+        if(r) return r;
       }
     }
   }
   return null;
 }
-async function fetchQmlRegime(){
-  try{
-    const r=await fetch("https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=4h&limit=100");
-    const k=await r.json();
-    if(Array.isArray(k)&&k.length>25){
-      const m=2/21; let ema=+k[0][4];
-      for(let i=1;i<k.length-1;i++){ ema=((+k[i][4])-ema)*m+ema; }
-      const last=+k[k.length-2][4];
-      QML_REGIME = last>ema*1.005 ? 'LONG' : last<ema*0.995 ? 'SHORT' : 'BOTH';
-    }
-  }catch(e){ QML_REGIME='BOTH'; }
-}
+
 async function fetchPairQml(sym){
   const k=await fetchKlinesRaw(sym,'15m',300,80);
   if(!k) return null;
-  const q=detectQM15(k);
+  const q=detectQM15(k, QML_REGIME);
   if(!q) return null;
   let corr=0;
   const B=window.BTC15C;
@@ -1688,13 +1680,13 @@ async function runQml(auto){
     }
     lastQmlHits=results; saveQmlCache();
     window.QMLMAP={};
-    lastQmlHits.forEach(h=>{ window.QMLMAP[h.sym]={status:h.status, hot:h.status==='AT LEVEL', dir:h.dir}; });
+    lastQmlHits.forEach(h=>{ window.QMLMAP[h.sym]={status:h.status, hot:h.status==='RETEST', dir:h.dir}; });
     try{ applyViewQml(); refreshQmlMarks(); }catch(e){ console.error('qml view error', e); }
     enrichLeans(lastQmlHits, r=>r.dir==='LONG', applyViewQml);
     await evalQmlLedgerAsync();
     // log NEW at-level entries
     for(const h of lastQmlHits){
-      const isAtLevel = h.status==='AT LEVEL';
+      const isAtLevel = h.status==='RETEST';
       if(!isAtLevel && !h.resolved) continue;
       if(QML_HIST.some(r=>r.sym===h.sym && r.status==='RUNNING')) continue;   // one live trade per coin
       if(!QML_HIST.some(r=>r.sym===h.sym && r.t===h.t)){
@@ -2061,14 +2053,14 @@ function showTab(t){
 let qmlFilter='all';   // default: show all patterns; use the dropdown for 'tradeable now' (AT LEVEL only)
 function liveStat(x){ const lp=LIVE_PRICES[x.sym]; if(!lp) return x.status;
   const dist=x.dir==='LONG'?(lp-x.qm)/x.qm*100:(x.qm-lp)/x.qm*100;
-  return dist<=0.4?'AT LEVEL':dist<=1.2?'APPROACHING':dist>1.5?'MOVED':'FORMING'; }
+  if(x.zone_lo!=null){ const lp2=LIVE_PRICES[x.sym]; if(lp2) return (lp2>=x.zone_lo&&lp2<=x.zone_hi)?'RETEST':'ARMED'; } return x.status; }
 function applyViewQml(){
   const rows=document.getElementById('qmlRows'), tbl=document.getElementById('qmlTbl');
   if(!rows) return;
-  let d=lastQmlHits.slice().filter(r=>!r.resolved);
+  let d=lastQmlHits.slice().filter(r=>r.status!=='USED');
   if (searchQml) d=d.filter(r=>r.sym.toUpperCase().includes(searchQml.toUpperCase()));
-  const srank=s=>s==='AT LEVEL'?0:s==='APPROACHING'?1:s==='MOVED'?3:2;
-  if(qmlFilter==='live') d=d.filter(r=>liveStat(r)==='AT LEVEL');
+  const srank=s=>s==='RETEST'?0:s==='ARMED'?1:3;
+  if(qmlFilter==='live') d=d.filter(r=>liveStat(r)==='RETEST');
   d=d.sort((a,b)=>srank(liveStat(a))-srank(liveStat(b))||b.volX-a.volX);
   if(!d.length){
     tbl.style.display='none';
@@ -2086,7 +2078,7 @@ function applyViewQml(){
       const distLive = bull ? (lp-r.qm)/r.qm*100 : (r.qm-lp)/r.qm*100;
       stStatus = distLive<=0.4 ? 'AT LEVEL' : distLive<=1.2 ? 'APPROACHING' : distLive>1.5 ? 'MOVED' : 'FORMING';
     }
-    const st = stStatus==='AT LEVEL' ? '<span style="color:#2ecc71;font-weight:800;">🔥 AT LEVEL</span>'
+    const st = stStatus==='RETEST' ? '<span style="color:#2ecc71;font-weight:800;">🔥 RETEST '+(r.score!=null?r.score+'/8':'')+'</span>' : stStatus==='ARMED' ? '<span style="color:#C9A227;font-weight:700;">🟡 ARMED '+(r.score!=null?r.score+'/8':'')+'</span>'
              : stStatus==='APPROACHING' ? '<span style="color:#C9A227;">👀 approaching</span>'
              : stStatus==='MOVED' ? '<span style="color:#5C6577;">⚠️ moved away</span>'
              : '<span style="color:#8B94A7;">⏳ forming</span>';
@@ -2153,7 +2145,7 @@ async function runScan(auto) {
     SIG_HIST=SIG_HIST.slice(0,150); saveSigHist(); applyViewSigHist(); refreshLedgerLive();
   }catch(e){ console.error('sig ledger error', e); }
   window.QMLMAP={};
-  lastQmlHits.forEach(h=>{ window.QMLMAP[h.sym]={status:h.status, hot:h.status==='AT LEVEL', dir:h.dir}; });
+  lastQmlHits.forEach(h=>{ window.QMLMAP[h.sym]={status:h.status, hot:h.status==='RETEST', dir:h.dir}; });
   try{ applyView(); }catch(e){ console.error('sweep view error', e); }
   try{ applyViewQml(); }catch(e){ console.error('QML view error', e); }
   try{
@@ -2379,7 +2371,7 @@ window.addEventListener('load', async ()=>{
     if(sc&&Array.isArray(sc.hits)&&sc.hits.length) lastScanHits=sc.hits;
     const qc=JSON.parse(localStorage.getItem('ba_lastqml')||'null');
     if(qc&&Array.isArray(qc.hits)&&qc.hits.length) lastQmlHits=qc.hits;
-    if(lastQmlHits.length){ window.QMLMAP={}; lastQmlHits.forEach(h=>{ window.QMLMAP[h.sym]={status:h.status, hot:h.status==='AT LEVEL', dir:h.dir}; }); }
+    if(lastQmlHits.length){ window.QMLMAP={}; lastQmlHits.forEach(h=>{ window.QMLMAP[h.sym]={status:h.status, hot:h.status==='RETEST', dir:h.dir}; }); }
     if(lastScanHits.length){ try{ applyView(); }catch(e){} }
     if(lastQmlHits.length){ try{ applyViewQml(); }catch(e){} }
   }catch(e){}
