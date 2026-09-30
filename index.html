@@ -302,7 +302,7 @@ footer.site-footer{ color:inherit; }
       <thead><tr><th>Coin</th><th>Pattern</th><th>Status</th><th>Entry · SL · TP</th><th>Vol ×</th><th>Grade</th><th>🐋 Inst.</th><th>Live</th></tr></thead>
       <tbody id="qmlRows"></tbody>
     </table></div>
-    <div class="meta" style="margin-top:10px;">Classic 5-point QM (pts 1–5) on the 15m chart · point 4 must break point 2 (BOS) with ≥1.5× impulse volume · entry at the broken level (QM zone) · SL beyond the pattern extreme · TP 1:2 · direction gated by BTC 4H trend · 🪤 trap setups removed</div>
+    <div class="meta" style="margin-top:10px;">QML v2 — raw structure detection: P1 → P2 → P3 sweep beyond P1 → P4 CLOSE beyond P2 (BOS) · 🟡 ARMED awaits retest · 🔥 RETEST = entry zone (P1 ± 0.15 ATR) · quality score /8: volume ≥1.2/1.5× · displacement ≥0.5 ATR · BTC 4H agreement · first retest · R:R ≥2 · SL beyond P3 · TP at P2 · invalid on close beyond P3</div>
     <div style="margin-top:26px;">
       <div class="panel-title" style="font-size:13px;">📋 QML Ledger</div>
       <div id="qmlHistStatus" style="text-align:center;color:#8B94A7;padding:10px;font-size:13px;">📋 QML ledger — logs every 🔥 AT-LEVEL entry · results auto-tracked hourly</div>
@@ -1698,7 +1698,7 @@ async function runQml(auto){
     }
     QML_HIST=QML_HIST.slice(0,150); saveQmlHist(); applyViewQmlHist();
     st.textContent=results.length+' pattern(s) on 15m · updated '+new Date().toLocaleTimeString('en-IN',{timeZone:'Asia/Kolkata',hour12:false})+' IST · refreshes hourly at :09 + on tab open';
-  }catch(e){ console.error('qml scan error', e); st.textContent='⚠️ QML scan error — retries next cycle'; }
+  }catch(e){ console.error('qml scan error', e); st.textContent='⚠️ '+(e&&e.message||e); }
   finally{ prog.style.display='none'; qmlScanning=false; window.SCAN_BUSY=false; }
 }
 function nextQmlIST(){
@@ -1723,7 +1723,7 @@ function applyViewQmlHist(){
   if(!rows) return;
   if(!QML_HIST.length){
     tbl.style.display='none';
-    document.getElementById('qmlHistStatus').innerHTML='📋 QML ledger — logs every 🔥 AT-LEVEL entry (limit at QM level · SL beyond pattern · TP 1:2) · results auto-tracked hourly';
+    document.getElementById('qmlHistStatus').innerHTML='📋 QML ledger — logs every 🔥 RETEST detection (entry in P1 zone · SL beyond P3 · TP at P2) · results auto-tracked hourly';
     return;
   }
   const tp=QML_HIST.filter(r=>r.status==='TP').length;
