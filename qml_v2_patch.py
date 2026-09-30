@@ -142,11 +142,21 @@ rep("if(qmlFilter==='live') d=d.filter(r=>liveStat(r)==='AT LEVEL');",
 rep("const isAtLevel = h.status==='AT LEVEL';", "const isAtLevel = h.status==='RETEST';", '8 ledger gate')
 
 # --- 9. browser badge block: insert ARMED branch; old APPROACHING/FORMING tails become harmless dead code ---
-rep("const st = stStatus==='AT LEVEL' ? '<span style=\"color:#2ecc71;font-weight:800;\">🔥AT LEVEL</span>'",
+def span_splice(start_marker, new_text, label):
+    global src
+    n = src.count(start_marker)
+    assert n == 1, f'{label}: start found {n} - NOT applied'
+    i = src.index(start_marker)
+    j = src.index("</span>'", i)
+    j += len("</span>'")
+    src = src[:i] + new_text + src[j:]
+    print('ok:', label)
+
+span_splice("const st = stStatus==='AT LEVEL'",
     "const st = stStatus==='RETEST' ? '<span style=\"color:#2ecc71;font-weight:800;\">🔥 RETEST '+(r.score!=null?r.score+'/8':'')+'</span>' : stStatus==='ARMED' ? '<span style=\"color:#C9A227;font-weight:700;\">🟡 ARMED '+(r.score!=null?r.score+'/8':'')+'</span>'", '9 browser badges')
 
 # --- 10. bot-tab status: same insert trick (live file has no space after emoji) ---
-rep("const st= s.status==='AT LEVEL' ? '<span style=\"color:#2ecc71;font-weight:800;\">🔥AT LEVEL</span>'",
+span_splice("const st= s.status==='AT LEVEL'",
     "const st= s.status==='RETEST' ? '<span style=\"color:#2ecc71;font-weight:800;\">🔥 RETEST '+(s.score!=null?s.score+'/8':'')+'</span>' : s.status==='ARMED' ? '<span style=\"color:#C9A227;font-weight:700;\">🟡 ARMED '+(s.score!=null?s.score+'/8':'')+'</span>'", '10 bot-tab badges')
 
 # --- 11. bot-tab score column ---
