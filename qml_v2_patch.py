@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""QML v2 - align dashboard 15m scanner with the bot: raw detection + ARMED/RETEST + score.
-ALL-OR-NOTHING: every replacement must match exactly once, else nothing is written."""
+"""QML v2 dashboard patch - REBUILT with single-line anchors (whitespace-proof).
+ALL-OR-NOTHING: any mismatch aborts with nothing written."""
 f = '/tmp/ba-dashboard/index.html'
 src = open(f).read()
 
 def splice(start_marker, end_marker, new_text, label):
     global src
     a = src.count(start_marker); b = src.count(end_marker)
-    assert a == 1 and b == 1, f'{label}: markers found {a}/{b} - NOT applied'
+    assert a == 1 and b == 1, f'{label}: markers {a}/{b} - NOT applied'
     i = src.index(start_marker); j = src.index(end_marker)
-    assert i < j, f'{label}: marker order wrong'
+    assert i < j, f'{label}: order wrong'
     src = src[:i] + new_text + src[j:]
     print('ok:', label)
 
@@ -20,7 +20,15 @@ def rep(old, new, label):
     src = src.replace(old, new)
     print('ok:', label)
 
-NEW_DETECT = """function detectQM15(k, regime){
+def rep_all(old, new, expect, label):
+    global src
+    n = src.count(old)
+    assert n == expect, f'{label}: found {n}, expected {expect} - NOT applied'
+    src = src.replace(old, new)
+    print('ok:', label, f'({expect} occurrences)')
+
+# --- 1. replace detectQM15 entirely (marker splice, whitespace-proof) ---
+NEW_DETECT = '''function detectQM15(k, regime){
   // QML v2: raw structure + quality score. BEAR: P1=H, P2=L, P3=H>P1, P4 CLOSE<P2. QML level=P1.
   const closed=k.slice(0,-1);
   if(closed.length<40) return null;
@@ -106,28 +114,46 @@ NEW_DETECT = """function detectQM15(k, regime){
   return null;
 }
 
-"""
-
+'''
 splice('function detectQM15(k){', 'async function fetchPairQml', NEW_DETECT, '1 detectQM15 v2')
 
+# --- 2. pass regime into detector ---
 rep('const q=detectQM15(k);', 'const q=detectQM15(k, QML_REGIME);', '2 regime arg')
+
+# --- 3. USED filter ---
 rep('let d=lastQmlHits.slice().filter(r=>!r.resolved);', "let d=lastQmlHits.slice().filter(r=>r.status!=='USED');", '3 USED filter')
-rep("window.QMLMAP[h.sym]={status:h.status, hot:h.status==='AT LEVEL', dir:h.dir};",
-    "window.QMLMAP[h.sym]={status:h.status, hot:h.status==='RETEST', dir:h.dir};", '4 sweep badge map')
-rep("function liveStat(x){ const lp=LIVE_PRICES[x.sym]; if(!lp) return x.status;\n  const dist=x.dir==='LONG'?(lp-x.qm)/x.qm*100:(x.qm-lp)/x.qm*100;\n  return dist<=0.4?'AT LEVEL':dist<=1.2?'APPROACHING':dist>1.5?'MOVED':'FORMING'; }",
-    "function liveStat(x){ if(x.status==='USED') return 'USED';\n  if(x.zone_lo!=null){ const lp=LIVE_PRICES[x.sym]; if(lp) return (lp>=x.zone_lo&&lp<=x.zone_hi)?'RETEST':'ARMED'; }\n  return x.status; }", '5 liveStat zone')
+
+# --- 4. QMLMAP hot flag: 3 variants in live file, all become RETEST ---
+rep_all("hot:h.status==='AT LEVEL'", "hot:h.status==='RETEST'", 3, '4 sweep badge map (x3)')
+
+# --- 5. liveStat: single-line return anchor ---
+rep("return dist<=0.4?'AT LEVEL':dist<=1.2?'APPROACHING':dist>1.5?'MOVED':'FORMING'; }",
+    "if(x.zone_lo!=null){ const lp2=LIVE_PRICES[x.sym]; if(lp2) return (lp2>=x.zone_lo&&lp2<=x.zone_hi)?'RETEST':'ARMED'; } return x.status; }", '5 liveStat zone')
+
+# --- 6. srank ---
 rep("const srank=s=>s==='AT LEVEL'?0:s==='APPROACHING'?1:s==='MOVED'?3:2;",
     "const srank=s=>s==='RETEST'?0:s==='ARMED'?1:3;", '6 srank')
-rep("const st = stStatus==='AT LEVEL' ? '<span style=\"color:#2ecc71;font-weight:800;\">🔥 AT LEVEL</span>'\n             : stStatus==='APPROACHING' ? '<span style=\"color:#C9A227;\">👀 approaching</span>'\n             : stStatus==='MOVED' ? '<span style=\"color:#5C6577;\">⚠️ moved away</span>'\n             : '<span style=\"color:#8B94A7;\">⏳ forming</span>';",
-    "const st = stStatus==='RETEST' ? '<span style=\"color:#2ecc71;font-weight:800;\">🔥 RETEST '+(r.score!=null?r.score+'/8':'')+'</span>'\n             : stStatus==='ARMED' ? '<span style=\"color:#C9A227;font-weight:700;\">🟡 ARMED '+(r.score!=null?r.score+'/8':'')+'</span>'\n             : '<span style=\"color:#8B94A7;\">⏳</span>';", '7 browser status badges')
-rep("const isAtLevel = h.status==='AT LEVEL';", "const isAtLevel = h.status==='RETEST';", '8 ledger log gate')
+
+# --- 7. live filter ---
 rep("if(qmlFilter==='live') d=d.filter(r=>liveStat(r)==='AT LEVEL');",
-    "if(qmlFilter==='live') d=d.filter(r=>liveStat(r)==='RETEST');", '9 live filter')
-rep("const st= s.status==='AT LEVEL' ? '<span style=\"color:#2ecc71;font-weight:800;\">🔥 AT LEVEL</span>'\n               : s.status==='APPROACHING' ? '<span style=\"color:#C9A227;\">👀 approaching</span>'\n               : '<span style=\"color:#8B94A7;\">⏳ forming</span>';",
-    "const st= s.status==='RETEST' ? '<span style=\"color:#2ecc71;font-weight:800;\">🔥 RETEST '+(s.score!=null?s.score+'/8':'')+'</span>'\n               : s.status==='ARMED' ? '<span style=\"color:#C9A227;font-weight:700;\">🟡 ARMED '+(s.score!=null?s.score+'/8':'')+'</span>'\n               : '<span style=\"color:#8B94A7;\">⏳</span>';", '10 bot-tab status badges')
-rep('<td>${s.grade||\'\'}</td></tr>`;\n      }).join(\'\');\n      qTbl.style.display=\'table\';',
-    '<td>${s.grade||\'\'} ${s.score!=null?s.score+\'/8\':\'\'}</td></tr>`;\n      }).join(\'\');\n      qTbl.style.display=\'table\';', '11 bot-tab score column')
-rep('Show: tradeable now (AT LEVEL only)', 'Show: RETEST only', '12 dropdown label')
+    "if(qmlFilter==='live') d=d.filter(r=>liveStat(r)==='RETEST');", '7 live filter')
+
+# --- 8. ledger log gate ---
+rep("const isAtLevel = h.status==='AT LEVEL';", "const isAtLevel = h.status==='RETEST';", '8 ledger gate')
+
+# --- 9. browser badge block: insert ARMED branch; old APPROACHING/FORMING tails become harmless dead code ---
+rep("const st = stStatus==='AT LEVEL' ? '<span style=\"color:#2ecc71;font-weight:800;\">🔥AT LEVEL</span>'",
+    "const st = stStatus==='RETEST' ? '<span style=\"color:#2ecc71;font-weight:800;\">🔥 RETEST '+(r.score!=null?r.score+'/8':'')+'</span>' : stStatus==='ARMED' ? '<span style=\"color:#C9A227;font-weight:700;\">🟡 ARMED '+(r.score!=null?r.score+'/8':'')+'</span>'", '9 browser badges')
+
+# --- 10. bot-tab status: same insert trick (live file has no space after emoji) ---
+rep("const st= s.status==='AT LEVEL' ? '<span style=\"color:#2ecc71;font-weight:800;\">🔥AT LEVEL</span>'",
+    "const st= s.status==='RETEST' ? '<span style=\"color:#2ecc71;font-weight:800;\">🔥 RETEST '+(s.score!=null?s.score+'/8':'')+'</span>' : s.status==='ARMED' ? '<span style=\"color:#C9A227;font-weight:700;\">🟡 ARMED '+(s.score!=null?s.score+'/8':'')+'</span>'", '10 bot-tab badges')
+
+# --- 11. bot-tab score column ---
+rep("<td>${s.grade||''}</td></tr>", "<td>${s.grade||''} ${s.score!=null?s.score+'/8':''}</td></tr>", '11 score column')
+
+# --- 12. dropdown label ---
+rep('Show: tradeable now (AT LEVEL only)', 'Show: RETEST only', '12 dropdown')
 
 open(f, 'w').write(src)
-print('QML v2 dashboard patch OK - all anchors matched')
+print('QML v2 dashboard patch v2 OK - all anchors matched')
