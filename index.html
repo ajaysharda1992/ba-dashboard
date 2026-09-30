@@ -1592,6 +1592,19 @@ function detectQM15(k, regime){
   return null;
 }
 
+async function fetchQmlRegime(){
+  try{
+    const r=await fetch("https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=4h&limit=100");
+    const k=await r.json();
+    if(Array.isArray(k)&&k.length>25){
+      const m=2/21; let ema=+k[0][4];
+      for(let i=1;i<k.length-1;i++){ ema=((+k[i][4])-ema)*m+ema; }
+      const last=+k[k.length-2][4];
+      QML_REGIME = last>ema*1.005 ? 'LONG' : last<ema*0.995 ? 'SHORT' : 'BOTH';
+    }
+  }catch(e){ QML_REGIME='BOTH'; }
+}
+
 async function fetchPairQml(sym){
   const k=await fetchKlinesRaw(sym,'15m',300,80);
   if(!k) return null;
