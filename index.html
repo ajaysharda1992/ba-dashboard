@@ -1521,6 +1521,8 @@ function detectQM15(k, regime){
   const n=s.length, SLIP=0.001, ZONE=0.15, MAXB=96, MAXD=3.0, MAXR=0.025;
   function build(bear, i1, i2, i3, p4i){
     const P1=s[i1].p, P2=s[i2].p, P3=s[i3].p;
+    if(bear&&P2>=P1) return null;
+    if((!bear)&&P2<=P1) return null;
     const sl=bear?P3*(1+SLIP):P3*(1-SLIP);
     const tp=P2, entry=P1;
     const risk=Math.abs(entry-sl);
