@@ -1,6 +1,6 @@
-/* BA DASHBOARD - ANALYTICS PATCH (v1)
+/* BA DASHBOARD - ANALYTICS PATCH (v3)
    Mirrors the bot's Phase A analytics + SIM mode into the dashboard without touching index.html logic.
-   Add ONE line to index.html before </body>:  <script src="analytics_patch.js?v=2"></script> */
+   Add ONE line to index.html before </body>:  <script src="analytics_patch.js?v=3"></script> */
 (function(){
 "use strict";
 function enhanceBot(d){
@@ -30,7 +30,12 @@ function enhanceBot(d){
       if(l && l.textContent.trim()==='Equity' && n){ n.textContent='$'+Math.round(d.sim.equity); l.textContent='SIM bank'; }
     });
   }
-  /* 3) Analytics panel: shadow models + funnel */
+  /* 3) currency honesty: QML/live panels are USDT -> show $ (sweep paper book stays INR) */
+  var qw=document.getElementById('botQWrap');
+  if(qw){ qw.querySelectorAll('*').forEach(function(n){
+    if(n.children.length===0 && n.textContent.indexOf('Rs.')!==-1) n.textContent=n.textContent.split('Rs.').join('$');
+  }); }
+  /* 4) Analytics panel: shadow models + funnel */
   var wrap=document.getElementById('analyticsWrap');
   if(!wrap){
     wrap=document.createElement('div'); wrap.id='analyticsWrap';
