@@ -1,13 +1,33 @@
-/* BA DASHBOARD - ANALYTICS PATCH (v3)
-   Mirrors the bot's Phase A analytics + SIM mode into the dashboard without touching index.html logic.
-   Add ONE line to index.html before </body>:  <script src="analytics_patch.js?v=5"></script> */
+/* BA DASHBOARD - ANALYTICS PATCH (v7)
+   Adds: fetch timeouts (no more stuck scans) · multi-source pair loader (CoinDCX ->
+   bot's GitHub JSON -> cache -> embedded) · SIM banner · $ currency in QML panels ·
+   analytics panel (shadow models + funnel). Load with ONE line before </body>:
+   <script src="analytics_patch.js?v=7"></script> */
 (function(){
 "use strict";
-var FALLBACK_PAIRS = ["BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT","DOGEUSDT","ADAUSDT","AVAXUSDT","LINKUSDT","TRXUSDT","DOTUSDT","LTCUSDT","NEARUSDT","UNIUSDT","ATOMUSDT","ARBUSDT","OPUSDT","SUIUSDT","SEIUSDT","TIAUSDT","APTUSDT","INJUSDT","GRTUSDT","AAVEUSDT","LDOUSDT","ARUSDT","FILUSDT","PEPEUSDT","SHIBUSDT","WIFUSDT","BONKUSDT","JUPUSDT","PYTHUSDT","STXUSDT","IMXUSDT","RNDRUSDT","FETUSDT","GALAUSDT","SANDUSDT","MANAUSDT","AXSUSDT","CHZUSDT","ENAUSDT","WLDUSDT","JASMYUSDT","FTMUSDT","ALGOUSDT","VETUSDT","EOSUSDT","XLMUSDT","ICPUSDT","HBARUSDT","KAVAUSDT","GMXUSDT","CRVUSDT","ENSUSDT","1INCHUSDT","COMPUSDT","ZECUSDT","ETCUSDT","BCHUSDT","QNTUSDT","EGLDUSDT","THETAUSDT","XTZUSDT","CAKEUSDT","MKRUSDT","SNXUSDT","ENJUSDT","CELOUSDT","FLOWUSDT","DYDXUSDT","APTUSDT","ORDIUSDT","NOTUSDT","TRBUSDT","PENDLEUSDT","ONDOUSDT","STRKUSDT","ZROUSDT","BLURUSDT","SUSDT","BBUSDT"];
 
-/* 0) ROBUST CoinDCX pairs loader - replaces the stock one BEFORE boot runs.
-   The stock loader can hang forever on CoinDCX WAF/403 (no timeout, no fallback).
-   This one: encoded URLs + 8s timeout + localStorage cache + graceful fallback. */
+/* ============ -1) GLOBAL FETCH TIMEOUT (10s) - kills stuck scans ============ */
+try{
+  var __ofetch = window.fetch.bind(window);
+  window.fetch = function(url, opts){
+    try{
+      var u = String(url);
+      if(u.indexOf('fapi.binance.com')!==-1 || u.indexOf('api.coindcx.com')!==-1){
+        opts = opts || {};
+        if(!opts.signal){
+          var __c = new AbortController();
+          opts.signal = __c.signal;
+          setTimeout(function(){ try{__c.abort();}catch(e){} }, 10000);
+        }
+      }
+    }catch(e){}
+    return __ofetch(url, opts);
+  };
+}catch(e){}
+
+/* ============ 0) FALLBACK + ROBUST MULTI-SOURCE PAIR LOADER ============ */
+var FALLBACK_PAIRS = ["BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT","DOGEUSDT","ADAUSDT","AVAXUSDT","LINKUSDT","TRXUSDT","DOTUSDT","LTCUSDT","NEARUSDT","UNIUSDT","ATOMUSDT","ARBUSDT","OPUSDT","SUIUSDT","SEIUSDT","TIAUSDT","APTUSDT","INJUSDT","GRTUSDT","AAVEUSDT","LDOUSDT","ARUSDT","FILUSDT","PEPEUSDT","SHIBUSDT","WIFUSDT","BONKUSDT","JUPUSDT","PYTHUSDT","STXUSDT","IMXUSDT","RNDRUSDT","FETUSDT","GALAUSDT","SANDUSDT","MANAUSDT","AXSUSDT","CHZUSDT","ENAUSDT","WLDUSDT","JASMYUSDT","FTMUSDT","ALGOUSDT","VETUSDT","EOSUSDT","XLMUSDT","ICPUSDT","HBARUSDT","KAVAUSDT","GMXUSDT","CRVUSDT","ENSUSDT","1INCHUSDT","COMPUSDT","ZECUSDT","XMRUSDT","ETCUSDT","BCHUSDT","QNTUSDT","EGLDUSDT","THETAUSDT","XTZUSDT","CAKEUSDT","MKRUSDT","SNXUSDT","ENJUSDT","CELOUSDT","FLOWUSDT","DYDXUSDT","ORDIUSDT","NOTUSDT","TRBUSDT","PENDLEUSDT","ONDOUSDT","STRKUSDT","ZROUSDT","BLURUSDT","SUSDT","BBUSDT"];
+
 try{
   window.loadPairs = async function(){
     var pc=document.getElementById('pairCount');
@@ -17,6 +37,7 @@ try{
       try{ window.PAIRS=mapped; }catch(e){}
       try{ localStorage.setItem('ba_pairs', JSON.stringify({t:Date.now(), pairs:mapped})); }catch(e){}
     }
+    /* source 1: CoinDCX direct (full 505 when their firewall allows) */
     var urls=[
       'https://api.coindcx.com/exchange/v1/derivatives/futures/data/active_instruments?margin_currency_short_name%5B%5D=USDT',
       'https://api.coindcx.com/exchange/v1/derivatives/futures/data/active_instruments?margin_currency_short_name=USDT',
@@ -24,24 +45,35 @@ try{
     ];
     for(var i=0;i<urls.length;i++){
       try{
-        var ctl=new AbortController(); var to=setTimeout(function(){ctl.abort();}, 8000);
-        var r=await fetch(urls[i], {signal:ctl.signal}); clearTimeout(to);
+        var r=await fetch(urls[i]);
         if(!r.ok) continue;
         var list=await r.json();
-        if(Array.isArray(list) && list.length){ setPairs(list); break; }
+        if(Array.isArray(list) && list.length){ setPairs(list); if(pc) pc.textContent=''+PAIRS.length+' pairs'; return; }
       }catch(e){}
     }
-    if(!PAIRS.length){
-      try{ var c=JSON.parse(localStorage.getItem('ba_pairs')||'null'); if(c && c.pairs && c.pairs.length) setPairs(c.pairs); }catch(e){}
+    /* source 2: the BOT's own upload (same GitHub channel as the BOT tab - always reachable) */
+    var botSrc=[
+      'https://cdn.jsdelivr.net/gh/ajaysharda1992/ba-bot-data@main/bot_trades.json?_='+Date.now(),
+      'https://raw.githubusercontent.com/ajaysharda1992/ba-bot-data/main/bot_trades.json?_='+Date.now()
+    ];
+    for(var j=0;j<botSrc.length;j++){
+      try{
+        var rb=await fetch(botSrc[j]);
+        if(!rb.ok) continue;
+        var db=await rb.json();
+        if(db && Array.isArray(db.pairs) && db.pairs.length){ setPairs(db.pairs); if(pc) pc.textContent=''+PAIRS.length+' pairs (bot)'; return; }
+      }catch(e){}
     }
-    if(!PAIRS.length){ setPairs(FALLBACK_PAIRS); }   // embedded majors - dashboard works even if CoinDCX API is fully blocked
+    /* source 3: browser cache, then embedded majors */
+    try{ var c=JSON.parse(localStorage.getItem('ba_pairs')||'null'); if(c && c.pairs && c.pairs.length) setPairs(c.pairs); }catch(e){}
+    if(!PAIRS.length) setPairs(FALLBACK_PAIRS);
     if(pc) pc.textContent=''+PAIRS.length+' pairs';
   };
 }catch(e){}
 
+/* ============ 1) ENHANCE BOT TAB ============ */
 function enhanceBot(d){
   if(!d) return;
-  /* 1) SIM / LIVE banner */
   var ban=document.getElementById('simBanner');
   if(!ban){
     ban=document.createElement('div'); ban.id='simBanner';
@@ -59,19 +91,16 @@ function enhanceBot(d){
       ban.innerHTML='&#x1F4B0; LIVE MODE &mdash; real orders &middot; bank $'+Math.round(((d.live&&d.live.equity)||0));
     }
   }
-  /* 2) QML equity card -> SIM bank when simulating */
   if(d.sim){
     document.querySelectorAll('#botSummary .stat').forEach(function(c){
       var l=c.querySelector('.l'), n=c.querySelector('.n');
       if(l && l.textContent.trim()==='Equity' && n){ n.textContent='$'+Math.round(d.sim.equity); l.textContent='SIM bank'; }
     });
   }
-  /* 3) currency honesty: QML/live panels are USDT -> show $ (sweep paper book stays INR) */
   var qw=document.getElementById('botQWrap');
   if(qw){ qw.querySelectorAll('*').forEach(function(n){
     if(n.children.length===0 && n.textContent.indexOf('Rs.')!==-1) n.textContent=n.textContent.split('Rs.').join('$');
   }); }
-  /* 4) Analytics panel: shadow models + funnel */
   var wrap=document.getElementById('analyticsWrap');
   if(!wrap){
     wrap=document.createElement('div'); wrap.id='analyticsWrap';
@@ -80,7 +109,7 @@ function enhanceBot(d){
     wrap.innerHTML='<div class="panel-title" style="font-size:13px;margin-top:26px;">&#x1F4C8; QML Analytics &mdash; Shadow Models &amp; Funnel</div>'
       +'<div id="anModels" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:14px 0;"></div>'
       +'<div id="anFunnel" style="text-align:center;color:#8B94A7;font-size:12.5px;line-height:2;padding:0 12px;"></div>'
-      +'<div class="meta" style="margin-top:10px;">D=ideal P1 &middot; A=limit at P1 &middot; B=basis-adjusted &middot; C=market at signal (assumed-fill model, labeled) &middot; live gates: score &ge;5 &middot; counter-trend &ge;7 &middot; order expires if TP consumed or price leaves 1.5 ATR</div>';
+      +'<div class="meta" style="margin-top:10px;">D=ideal P1 &middot; A=limit at P1 &middot; L=ladder (1R/1.5R rungs) &middot; B=basis-adjusted &middot; C=market at signal &middot; assumed-fill + slippage models, labeled &middot; gates: score &ge;5 &middot; counter-trend &ge;7 &middot; expiry if TP consumed or price leaves 1.5 ATR</div>';
   }
   var mo=(d.report&&d.report.models)||{};
   var mk=document.getElementById('anModels');
@@ -99,6 +128,8 @@ function enhanceBot(d){
     fk.innerHTML=parts.length?parts.join(' &middot; '):'funnel accumulating&hellip;';
   }
 }
+
+/* ============ 2) HOOK renderBot (if reachable) + SELF-POLL (always) ============ */
 function hook(){
   if(typeof window.renderBot==='function' && !window.renderBot.__patched){
     var orig=window.renderBot;
@@ -106,7 +137,16 @@ function hook(){
     wrapped.__patched=true; window.renderBot=wrapped;
   }
 }
-if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded',function(){setTimeout(hook,800);}); }
-else { setTimeout(hook,800); }
+var __BOTJSON = 'https://cdn.jsdelivr.net/gh/ajaysharda1992/ba-bot-data@main/bot_trades.json';
+async function __pollBot(){
+  try{
+    var r = await fetch(__BOTJSON + '?_=' + Date.now());
+    var d = await r.json();
+    enhanceBot(d);
+  }catch(e){}
+}
+if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded',function(){setTimeout(hook,800); setTimeout(__pollBot,3000);}); }
+else { setTimeout(hook,800); setTimeout(__pollBot,3000); }
 setInterval(hook,5000);
+setInterval(__pollBot,60000);
 })();
