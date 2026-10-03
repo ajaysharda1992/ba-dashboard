@@ -1,8 +1,41 @@
 /* BA DASHBOARD - ANALYTICS PATCH (v3)
    Mirrors the bot's Phase A analytics + SIM mode into the dashboard without touching index.html logic.
-   Add ONE line to index.html before </body>:  <script src="analytics_patch.js?v=3"></script> */
+   Add ONE line to index.html before </body>:  <script src="analytics_patch.js?v=4"></script> */
 (function(){
 "use strict";
+/* 0) ROBUST CoinDCX pairs loader - replaces the stock one BEFORE boot runs.
+   The stock loader can hang forever on CoinDCX WAF/403 (no timeout, no fallback).
+   This one: encoded URLs + 8s timeout + localStorage cache + graceful fallback. */
+try{
+  window.loadPairs = async function(){
+    var pc=document.getElementById('pairCount');
+    function setPairs(list){
+      var mapped=list.map(function(x){return String(x).replace('B-','').replace('_USDT','')+'USDT';});
+      try{ PAIRS=mapped; }catch(e){}
+      try{ window.PAIRS=mapped; }catch(e){}
+      try{ localStorage.setItem('ba_pairs', JSON.stringify({t:Date.now(), pairs:mapped})); }catch(e){}
+    }
+    var urls=[
+      'https://api.coindcx.com/exchange/v1/derivatives/futures/data/active_instruments?margin_currency_short_name%5B%5D=USDT',
+      'https://api.coindcx.com/exchange/v1/derivatives/futures/data/active_instruments?margin_currency_short_name=USDT',
+      'https://api.coindcx.com/exchange/v1/derivatives/futures/data/active_instruments'
+    ];
+    for(var i=0;i<urls.length;i++){
+      try{
+        var ctl=new AbortController(); var to=setTimeout(function(){ctl.abort();}, 8000);
+        var r=await fetch(urls[i], {signal:ctl.signal}); clearTimeout(to);
+        if(!r.ok) continue;
+        var list=await r.json();
+        if(Array.isArray(list) && list.length){ setPairs(list); break; }
+      }catch(e){}
+    }
+    if(!PAIRS.length){
+      try{ var c=JSON.parse(localStorage.getItem('ba_pairs')||'null'); if(c && c.pairs && c.pairs.length) setPairs(c.pairs); }catch(e){}
+    }
+    if(pc) pc.textContent=''+PAIRS.length+' pairs';
+  };
+}catch(e){}
+
 function enhanceBot(d){
   if(!d) return;
   /* 1) SIM / LIVE banner */
