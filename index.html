@@ -432,7 +432,7 @@ footer.site-footer{ color:inherit; }
       <div id="botQExpand" style="text-align:center;margin:8px 0;"></div>
     </div>
     <div id="botReportWrap" style="display:none;">
-      <div class="panel-title" style="font-size:13px;margin-top:26px;">&#x1F4C8; QML Analytics &mdash; Shadow Models &amp; Funnel</div>
+      <div class="panel-title" style="font-size:13px;margin-top:26px;">&#x1F4C8; QML Analytics &mdash; Shadow Models &amp; Funnel &middot; v3</div>
       <div id="botReportModels" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:14px 0;"></div>
       <div id="botReportFunnel" style="text-align:center;color:#8B94A7;font-size:12.5px;line-height:2;padding:0 10px;"></div>
       <div class="meta" style="margin-top:8px;">D=ideal P1 &middot; A=limit at P1 &middot; B=basis-adjusted &middot; C=market at signal (assumed-fill model, labeled) &middot; gates: score &ge;5 &middot; counter-trend &ge;7 &middot; order expires if TP consumed or price leaves 1.5 ATR</div>
@@ -1401,15 +1401,19 @@ const fakePnl=(d.history||[]).filter(h=>{
   if(rw){
     const mo=rp.models||{};
     const keys=Object.keys(mo);
-    if(keys.length || Object.keys(rp.funnel||{}).length>1){
-      rw.style.display='block';
+    rw.style.display='block';
+    if(keys.length){
       document.getElementById('botReportModels').innerHTML=keys.map(m=>{ const s=mo[m];
         return '<div class="stat" style="min-width:110px;padding:10px 14px;"><div class="n" style="font-size:17px;color:'+(s.avg_r>=0?'#2ecc71':'#E5484D')+';">'+(s.avg_r>=0?'+':'')+s.avg_r+'R</div><div class="l">'+m+' &middot; win '+s.win_pct+'% &middot; n='+s.n+' &middot; fill '+s.fill_pct+'%</div></div>';
       }).join('');
+    } else {
+      document.getElementById('botReportModels').innerHTML='<div class="meta">model cards appear after the first midnight report &middot; funnel below is live now</div>';
+    }
+    {
       const fn=rp.funnel||{};
       const order=['raw_qml','st_RETEST','st_ARMED','st_STALE','score_ge4','score_ge5','gate_exec_basis','gate_exec_listed','gate_exec_thin','gate_countertrend','gate_corr_dir_cap','gate_expired_at_rest','orders_submitted','orders_filled','orders_cancelled','exits_win','exits_loss','exits_time_stop'];
-      document.getElementById('botReportFunnel').innerHTML=order.filter(k=>fn[k]!=null).map(k=>k.replace('gate_','&#x26D4; ').replace('st_','')+': <b style="color:#DCE3F0">'+fn[k]+'</b>').join(' &middot; ')||'funnel accumulating…';
-    } else rw.style.display='none';
+      document.getElementById('botReportFunnel').innerHTML=order.filter(k=>fn[k]!=null).map(k=>k.replace('gate_','&#x26D4; ').replace('st_','')+': <b style="color:#DCE3F0">'+fn[k]+'</b>').join(' &middot; ')||('no funnel data yet in bot JSON'+(d.updated?(' &middot; bot file '+d.updated.slice(11,16)+' IST'):''));
+    }
   }
   // ---- VPS market feed ----
   const mr=((d.market||{}).rows)||[];
@@ -1496,6 +1500,7 @@ const fakePnl=(d.history||[]).filter(h=>{
   }
 }
 setInterval(()=>{ if(document.getElementById('botArea').style.display==='block') loadBotData(); }, 1800000);
+setInterval(()=>{ try{ if(BOT_DATA) renderBot(); }catch(e){} }, 60000);
 async function refreshBotMarks(){
   if(!BOT_DATA) return;
   const ops=(BOT_DATA.open||[]).concat((BOT_DATA.qml&&BOT_DATA.qml.open)||[]);
