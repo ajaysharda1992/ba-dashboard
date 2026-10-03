@@ -1,8 +1,10 @@
 /* BA DASHBOARD - ANALYTICS PATCH (v3)
    Mirrors the bot's Phase A analytics + SIM mode into the dashboard without touching index.html logic.
-   Add ONE line to index.html before </body>:  <script src="analytics_patch.js?v=4"></script> */
+   Add ONE line to index.html before </body>:  <script src="analytics_patch.js?v=5"></script> */
 (function(){
 "use strict";
+var FALLBACK_PAIRS = ["BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT","DOGEUSDT","ADAUSDT","AVAXUSDT","LINKUSDT","TRXUSDT","DOTUSDT","LTCUSDT","NEARUSDT","UNIUSDT","ATOMUSDT","ARBUSDT","OPUSDT","SUIUSDT","SEIUSDT","TIAUSDT","APTUSDT","INJUSDT","GRTUSDT","AAVEUSDT","LDOUSDT","ARUSDT","FILUSDT","PEPEUSDT","SHIBUSDT","WIFUSDT","BONKUSDT","JUPUSDT","PYTHUSDT","STXUSDT","IMXUSDT","RNDRUSDT","FETUSDT","GALAUSDT","SANDUSDT","MANAUSDT","AXSUSDT","CHZUSDT","ENAUSDT","WLDUSDT","JASMYUSDT","FTMUSDT","ALGOUSDT","VETUSDT","EOSUSDT","XLMUSDT","ICPUSDT","HBARUSDT","KAVAUSDT","GMXUSDT","CRVUSDT","ENSUSDT","1INCHUSDT","COMPUSDT","ZECUSDT","ETCUSDT","BCHUSDT","QNTUSDT","EGLDUSDT","THETAUSDT","XTZUSDT","CAKEUSDT","MKRUSDT","SNXUSDT","ENJUSDT","CELOUSDT","FLOWUSDT","DYDXUSDT","APTUSDT","ORDIUSDT","NOTUSDT","TRBUSDT","PENDLEUSDT","ONDOUSDT","STRKUSDT","ZROUSDT","BLURUSDT","SUSDT","BBUSDT"];
+
 /* 0) ROBUST CoinDCX pairs loader - replaces the stock one BEFORE boot runs.
    The stock loader can hang forever on CoinDCX WAF/403 (no timeout, no fallback).
    This one: encoded URLs + 8s timeout + localStorage cache + graceful fallback. */
@@ -32,6 +34,7 @@ try{
     if(!PAIRS.length){
       try{ var c=JSON.parse(localStorage.getItem('ba_pairs')||'null'); if(c && c.pairs && c.pairs.length) setPairs(c.pairs); }catch(e){}
     }
+    if(!PAIRS.length){ setPairs(FALLBACK_PAIRS); }   // embedded majors - dashboard works even if CoinDCX API is fully blocked
     if(pc) pc.textContent=''+PAIRS.length+' pairs';
   };
 }catch(e){}
