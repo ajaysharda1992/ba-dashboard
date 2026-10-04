@@ -302,7 +302,7 @@ footer.site-footer{ color:inherit; }
       <thead><tr><th>Coin</th><th>Pattern</th><th>Status</th><th>Entry · SL · TP</th><th>Vol ×</th><th>Grade</th><th>🐋 Inst.</th><th>Live</th></tr></thead>
       <tbody id="qmlRows"></tbody>
     </table></div>
-    <div class="meta" style="margin-top:10px;">QML v2 — raw structure detection: P1 → P2 → P3 sweep beyond P1 → P4 CLOSE beyond P2 (BOS) · 🟡 ARMED awaits retest · 🔥 RETEST = entry zone (P1 ± 0.15 ATR) · quality score /8: volume ≥1.2/1.5× · displacement ≥0.5 ATR · BTC 4H agreement · first retest · R:R ≥2 · SL beyond P3 · TP at P2 · invalid on close beyond P3 &middot; live gates: score &ge;6 (score-5 cell = 62% loss / -0.45R) · counter-trend &ge;7 · stale if price leaves 1.5 ATR · TP capped at 2R</div>
+    <div class="meta" style="margin-top:10px;">QML v2 — raw structure detection: P1 → P2 → P3 sweep beyond P1 → P4 CLOSE beyond P2 (BOS) · 🟡 ARMED awaits retest · 🔥 RETEST = entry zone (P1 ± 0.15 ATR) · quality score /8: volume ≥1.2/1.5× · displacement ≥0.5 ATR · BTC 4H agreement · first retest · R:R ≥2 · SL beyond P3 · TP at P2 · invalid on close beyond P3 &middot; live gates: score &ge;6 · liquidity &ge;$25M/24h (thin books avg -0.25R) · counter-trend &ge;7 · stale if price leaves 1.5 ATR · TP capped at 2R</div>
     <div style="margin-top:26px;">
       <div class="panel-title" style="font-size:13px;">📋 QML Ledger</div>
       <div id="qmlHistStatus" style="text-align:center;color:#8B94A7;padding:10px;font-size:13px;">📋 QML ledger — logs every 🔥 AT-LEVEL entry · results auto-tracked hourly</div>
@@ -436,7 +436,7 @@ footer.site-footer{ color:inherit; }
       <div class="panel-title" style="font-size:13px;margin-top:26px;">&#x1F4C8; QML Analytics &mdash; Shadow Models &amp; Funnel &middot; v3</div>
       <div id="botReportModels" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:14px 0;"></div>
       <div id="botReportFunnel" style="text-align:center;color:#8B94A7;font-size:12.5px;line-height:2;padding:0 10px;"></div>
-      <div class="meta" style="margin-top:8px;">D=ideal P1 &middot; A=limit at P1 &middot; B=basis-adjusted &middot; C=market at signal (assumed-fill model, labeled) &middot; gates: score &ge;5 &middot; counter-trend &ge;7 &middot; min score 6 (score5 = 62% loss) &middot; order expires if TP consumed or price leaves 1.5 ATR</div>
+      <div class="meta" style="margin-top:8px;">D=ideal P1 &middot; A=limit at P1 &middot; B=basis-adjusted &middot; C=market at signal (assumed-fill model, labeled) &middot; gates: score &ge;6 &middot; vol floor $25M &middot; counter-trend &ge;7 &middot; SIM mgmt T1 (lock SL at +1R, replay +110%) &middot; order expires if TP consumed or price leaves 1.5 ATR</div>
     </div>
   </div>
 </div>
