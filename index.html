@@ -302,7 +302,7 @@ footer.site-footer{ color:inherit; }
       <thead><tr><th>Coin</th><th>Pattern</th><th>Status</th><th>Entry · SL · TP</th><th>Vol ×</th><th>Grade</th><th>🐋 Inst.</th><th>Live</th></tr></thead>
       <tbody id="qmlRows"></tbody>
     </table></div>
-    <div class="meta" style="margin-top:10px;">QML v2 — raw structure detection: P1 → P2 → P3 sweep beyond P1 → P4 CLOSE beyond P2 (BOS) · 🟡 ARMED awaits retest · 🔥 RETEST = entry zone (P1 ± 0.15 ATR) · quality score /8: volume ≥1.2/1.5× · displacement ≥0.5 ATR · BTC 4H agreement · first retest · R:R ≥2 · SL beyond P3 · TP at P2 · invalid on close beyond P3 &middot; live gates: score &ge;6 · liquidity &ge;$25M/24h (thin books avg -0.25R) · counter-trend &ge;7 · stop &ge;0.5 ATR · sweep &ge;0.25 ATR · 45m rel-mom ±2% · 1h abs-mom ±3% · CLOSE-BASED STOP: exit on candle close beyond P3 (wick hunt tolerated, hard stop 1 ATR beyond) · stale if price leaves 1.5 ATR · TP capped at 2R</div>
+    <div class="meta" style="margin-top:10px;">QML v2 — raw structure detection: P1 → P2 → P3 sweep beyond P1 → P4 CLOSE beyond P2 (BOS) · 🟡 ARMED awaits retest · 🔥 RETEST = entry zone (P1 ± 0.15 ATR) · quality score /16: volume ≥1.2/1.5× · displacement ≥0.5 ATR · BTC 4H agreement · first retest · OTE 61.8-78.6% · rejection close · clean sweep wick · R:R ≥2 · SL beyond P3 · TP at P2 · invalid on close beyond P3 &middot; live gates: score &ge;6 · liquidity &ge;$25M/24h (thin books avg -0.25R) · counter-trend &ge;7 · stop &ge;0.5 ATR · sweep &ge;0.25 ATR · 45m rel-mom ±2% · 1h abs-mom ±3% · CLOSE-BASED STOP: exit on candle close beyond P3 (wick hunt tolerated, hard stop 1 ATR beyond) · stale if price leaves 1.5 ATR · TP capped at 2R</div>
     <div style="margin-top:26px;">
       <div class="panel-title" style="font-size:13px;">📋 QML Ledger</div>
       <div id="qmlHistStatus" style="text-align:center;color:#8B94A7;padding:10px;font-size:13px;">📋 QML ledger — logs every 🔥 AT-LEVEL entry · results auto-tracked hourly</div>
@@ -1599,20 +1599,40 @@ function detectQM15(k, regime){
       if(Math.abs(cur-entry)>MAXD*atr) return null;
       status='ARMED';
     }
+    // FOUNDER SCORE v2 mirror (2026-10-06, /16): OTE latched +1, rejection +2, clean sweep +1
+    const p3i=s[i3].i;
+    let legLo=1e18, legHi=0;
+    for(let j=p3i;j<=p4i;j++){ const l=+closed[j][3], h=+closed[j][2]; if(l<legLo)legLo=l; if(h>legHi)legHi=h; }
+    const oteLo=bear? legLo+0.618*(P3-legLo) : legHi-0.786*(legHi-P3);
+    const oteHi=bear? legLo+0.786*(P3-legLo) : legHi-0.618*(legHi-P3);
+    let ote=0, rej=0;
+    for(let j=p4i+1;j<closed.length;j++){
+      const hh=+closed[j][2], ll=+closed[j][3], cc=+closed[j][4];
+      if(hh>=oteLo && ll<=oteHi && !ote) ote=1;
+      if(hh>=zlo && ll<=zhi){ if((bear&&cc<P1)||((!bear)&&cc>P1)) rej=2; }
+    }
+    const _po=+closed[p3i][1], _ph=+closed[p3i][2], _pl=+closed[p3i][3], _pc=+closed[p3i][4];
+    let swk=0;
+    if(_ph>_pl){
+      if(bear && _pc<P1 && (_ph-Math.max(_po,_pc))>=0.6*(_ph-_pl)) swk=1;
+      if(!bear && _pc>P1 && (Math.min(_po,_pc)-_pl)>=0.6*(_ph-_pl)) swk=1;
+    }
     let score=2;
     const disp=Math.abs(+closed[p4i][4]-P3)/atr;
-    if(disp>=0.5) score++;
-    const v=Math.max(+closed[p4i][5], +closed[s[i3].i][5]);
+    if(disp>=0.5) score+=2;
+    const v=Math.max(+closed[p4i][5], +closed[p3i][5]);
     const volX=vavg>0?v/vavg:0;
     if(volX>=1.2) score++;
     if(volX>=1.5) score++;
-    if((regime==='SHORT'&&bear)||(regime==='LONG'&&(!bear))) score++;
-    if(status==='RETEST') score++;
+    if((regime==='SHORT'&&bear)||(regime==='LONG'&&(!bear))) score+=2;
+    if(status==='RETEST') score+=2;
     const rr=Math.abs(tp-entry)/risk;
-    if(rr>=2) score++;
+    if(rr>=2) score+=2;
+    score+=ote+rej+swk;
     return {dir:bear?'SHORT':'LONG', status:status, qm:entry, p1:P1, p2:P2, p3:P3, p4:+closed[p4i][4],
             sl:sl, tp:tp, zone_lo:zlo, zone_hi:zhi, score:score, disp:+disp.toFixed(2),
-            volX:+volX.toFixed(2), rr:+rr.toFixed(2), grade:score>=6?'A':'B'};
+            volX:+volX.toFixed(2), rr:+rr.toFixed(2),
+            grade:score>=11?'A+':(score>=9?'A':'B')};
   }
   const W=30;
   for(let i1=n-1;i1>=0;i1--){
