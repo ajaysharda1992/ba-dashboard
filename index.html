@@ -302,7 +302,7 @@ footer.site-footer{ color:inherit; }
       <thead><tr><th>Coin</th><th>Pattern</th><th>Status</th><th>Entry · SL · TP</th><th>Vol ×</th><th>Grade</th><th>🐋 Inst.</th><th>Live</th></tr></thead>
       <tbody id="qmlRows"></tbody>
     </table></div>
-    <div class="meta" style="margin-top:10px;">QML v2 — raw structure detection: P1 → P2 → P3 sweep beyond P1 → P4 CLOSE beyond P2 (BOS) · 🟡 ARMED awaits retest · 🔥 RETEST = entry zone (P1 ± 0.15 ATR) · quality score /8: volume ≥1.2/1.5× · displacement ≥0.5 ATR · BTC 4H agreement · first retest · R:R ≥2 · SL beyond P3 · TP at P2 · invalid on close beyond P3 &middot; live gates: score &ge;6 · liquidity &ge;$25M/24h (thin books avg -0.25R) · counter-trend &ge;7 · stale if price leaves 1.5 ATR · TP capped at 2R</div>
+    <div class="meta" style="margin-top:10px;">QML v2 — raw structure detection: P1 → P2 → P3 sweep beyond P1 → P4 CLOSE beyond P2 (BOS) · 🟡 ARMED awaits retest · 🔥 RETEST = entry zone (P1 ± 0.15 ATR) · quality score /8: volume ≥1.2/1.5× · displacement ≥0.5 ATR · BTC 4H agreement · first retest · R:R ≥2 · SL beyond P3 · TP at P2 · invalid on close beyond P3 &middot; live gates: score &ge;6 · liquidity &ge;$25M/24h (thin books avg -0.25R) · counter-trend &ge;7 · stop &ge;0.5 ATR · sweep &ge;0.25 ATR · 45m rel-mom ±2% · 1h abs-mom ±3% · stale if price leaves 1.5 ATR · TP capped at 2R</div>
     <div style="margin-top:26px;">
       <div class="panel-title" style="font-size:13px;">📋 QML Ledger</div>
       <div id="qmlHistStatus" style="text-align:center;color:#8B94A7;padding:10px;font-size:13px;">📋 QML ledger — logs every 🔥 AT-LEVEL entry · results auto-tracked hourly</div>
@@ -436,7 +436,7 @@ footer.site-footer{ color:inherit; }
       <div class="panel-title" style="font-size:13px;margin-top:26px;">&#x1F4C8; QML Analytics &mdash; Shadow Models &amp; Funnel &middot; v3</div>
       <div id="botReportModels" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:14px 0;"></div>
       <div id="botReportFunnel" style="text-align:center;color:#8B94A7;font-size:12.5px;line-height:2;padding:0 10px;"></div>
-      <div class="meta" style="margin-top:8px;">D=ideal P1 &middot; A=limit at P1 &middot; B=basis-adjusted &middot; C=market at signal (assumed-fill model, labeled) &middot; gates: score &ge;6 &middot; vol floor $25M &middot; counter-trend &ge;7 &middot; SIM mgmt T1 (lock SL at +1R, replay +110%) &middot; order expires if TP consumed or price leaves 1.5 ATR</div>
+      <div class="meta" style="margin-top:8px;">D=ideal P1 &middot; A=limit at P1 &middot; B=basis-adjusted &middot; C=market at signal (assumed-fill model, labeled) &middot; gates: score &ge;6 &middot; vol floor $25M &middot; counter-trend &ge;7 &middot; stop &ge;0.5 ATR &middot; sweep &ge;0.25 ATR &middot; rel-mom ±2% &middot; abs-mom ±3% &middot; SIM mgmt T1 (lock SL at +1R, replay +110%) &middot; order expires if TP consumed or price leaves 1.5 ATR</div>
     </div>
   </div>
 </div>
@@ -1412,7 +1412,7 @@ const fakePnl=(d.history||[]).filter(h=>{
     }
     {
       const fn=rp.funnel||{};
-      const order=['raw_qml','st_RETEST','st_ARMED','st_STALE','score_ge4','score_ge5','gate_exec_basis','gate_exec_listed','gate_exec_thin','gate_countertrend','gate_corr_dir_cap','gate_expired_at_rest','orders_submitted','orders_filled','orders_cancelled','exits_win','exits_loss','exits_time_stop'];
+      const order=['raw_qml','st_RETEST','st_ARMED','st_STALE','score_ge4','score_ge5','gate_exec_basis','gate_exec_listed','gate_exec_thin','gate_countertrend','gate_rel_mom','gate_abs_mom','gate_corr_dir_cap','gate_expired_at_rest','orders_submitted','orders_filled','orders_cancelled','exits_win','exits_loss','exits_time_stop'];
       document.getElementById('botReportFunnel').innerHTML=order.filter(k=>fn[k]!=null).map(k=>k.replace('gate_','&#x26D4; ').replace('st_','')+': <b style="color:#DCE3F0">'+fn[k]+'</b>').join(' &middot; ')||('no funnel data yet in bot JSON'+(d.updated?(' &middot; bot file '+d.updated.slice(11,16)+' IST'):''));
     }
   }
@@ -1571,7 +1571,7 @@ function detectQM15(k, regime){
   let vavg=0; for(let i=Math.max(0,closed.length-21);i<closed.length-1;i++) vavg+=+closed[i][5];
   vavg/=20;
   const cur=+closed[closed.length-1][4];
-  const n=s.length, SLIP=0.001, ZONE=0.15, MAXB=96, MAXD=3.0, MAXR=0.025;
+  const n=s.length, SLIP=0.001, ZONE=0.15, MAXB=96, MAXD=3.0, MAXR=0.025, MINRISK=0.50, MINSWEEP=0.25;
   function build(bear, i1, i2, i3, p4i){
     const P1=s[i1].p, P2=s[i2].p, P3=s[i3].p;
     if(bear&&P2>=P1) return null;
@@ -1580,6 +1580,8 @@ function detectQM15(k, regime){
     const tp=P2, entry=P1;
     const risk=Math.abs(entry-sl);
     if(risk<=0 || risk/entry>MAXR) return null;
+    if(risk < MINRISK*atr) return null;               // mirror bot: stop inside noise (2026-10-06)
+    if(Math.abs(P3-P1) < MINSWEEP*atr) return null; // mirror bot: shallow sweep fakes R:R
     const zlo=entry-ZONE*atr, zhi=entry+ZONE*atr;
     let dead=false, touches=0;
     for(let j=p4i+1;j<closed.length;j++){
