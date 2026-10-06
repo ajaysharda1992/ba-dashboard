@@ -1461,7 +1461,7 @@ const fakePnl=(d.history||[]).filter(h=>{
     if(qs.length){
       qRows.innerHTML=qs.map(s=>{
         const LONG=s.dir==='LONG';
-        const st= s.status==='RETEST' ? '<span style="color:#2ecc71;font-weight:800;">🔥 RETEST '+(s.score!=null?s.score+'/8':'')+'</span>' : s.status==='ARMED' ? '<span style="color:#C9A227;font-weight:700;">🟡 ARMED '+(s.score!=null?s.score+'/8':'')+'</span>'
+        const st= s.status==='RETEST' ? '<span style="color:#2ecc71;font-weight:800;">🔥 RETEST '+(s.score!=null?s.score+'/16':'')+'</span>' : s.status==='ARMED' ? '<span style="color:#C9A227;font-weight:700;">🟡 ARMED '+(s.score!=null?s.score+'/16':'')+'</span>'
                : s.status==='STALE' ? '<span style="color:#5C6577;font-weight:700;">⏸ STALE</span>'
                : s.status==='APPROACHING' ? '<span style="color:#C9A227;">👀 approaching</span>'
                : '<span style="color:#8B94A7;">⏳ forming</span>';
@@ -1469,7 +1469,7 @@ const fakePnl=(d.history||[]).filter(h=>{
          <td class="${LONG?'bull':'bear'}" style="font-weight:700;">${LONG?'▲ LONG':'▼ SHORT'}</td>
          <td style="white-space:nowrap;">${st}</td>
          <td class="num">${fmtP(s.qm)} · <span style="color:#E5484D;">${fmtP(s.sl)}</span> · <span style="color:#2ecc71;">${fmtP(s.tp)}</span></td>
-         <td>${s.grade||''} ${s.score!=null?s.score+'/8':''}</td></tr>`;
+         <td>${s.grade||''} ${s.score!=null?s.score+'/16':''}</td></tr>`;
       }).join('');
       qTbl.style.display='table';
       document.getElementById('botQmlSigStatus').textContent='VPS QML bot: '+qs.length+' pattern(s) on 15m · scanned '+qs[0].t+' IST · refreshes every 30 min';
@@ -2169,7 +2169,7 @@ function applyViewQml(){
       const distLive = bull ? (lp-r.qm)/r.qm*100 : (r.qm-lp)/r.qm*100;
       stStatus = distLive<=0.4 ? 'AT LEVEL' : distLive<=1.2 ? 'APPROACHING' : distLive>1.5 ? 'MOVED' : 'FORMING';
     }
-    const st = stStatus==='RETEST' ? '<span style="color:#2ecc71;font-weight:800;">🔥 RETEST '+(r.score!=null?r.score+'/8':'')+'</span>' : stStatus==='ARMED' ? '<span style="color:#C9A227;font-weight:700;">🟡 ARMED '+(r.score!=null?r.score+'/8':'')+'</span>'
+    const st = stStatus==='RETEST' ? '<span style="color:#2ecc71;font-weight:800;">🔥 RETEST '+(r.score!=null?r.score+'/16':'')+'</span>' : stStatus==='ARMED' ? '<span style="color:#C9A227;font-weight:700;">🟡 ARMED '+(r.score!=null?r.score+'/16':'')+'</span>'
              : stStatus==='APPROACHING' ? '<span style="color:#C9A227;">👀 approaching</span>'
              : stStatus==='STALE' ? '<span style="color:#5C6577;">⏸ stale</span>' : stStatus==='MOVED' ? '<span style="color:#5C6577;">⚠️ moved away</span>'
              : '<span style="color:#8B94A7;">⏳ forming</span>';
