@@ -432,6 +432,21 @@ footer.site-footer{ color:inherit; }
       </table></div>
       <div id="botQExpand" style="text-align:center;margin:8px 0;"></div>
     </div>
+    <div id="botSweepSimWrap" style="display:none;">
+      <div class="panel-title" style="font-size:13px;margin-top:26px;">&#x26A1; 4H Sweep SIM &mdash; $500 live-mirror &middot; A+ only &middot; BTC-regime aligned &middot; 1:2 &middot; no lock</div>
+      <div id="botSweepSimSummary" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:14px 0;"></div>
+      <div class="panel-title" style="font-size:12px;">Open SIM Positions</div>
+      <div class="tblwrap"><table id="botSweepSimOpenTbl" style="display:none;">
+        <thead><tr><th>Coin</th><th>Dir</th><th>Grade</th><th>Entry</th><th>SL</th><th>TP</th></tr></thead>
+        <tbody id="botSweepSimOpenRows"></tbody>
+      </table></div>
+      <div id="botSweepSimOpenEmpty" style="text-align:center;color:#5C6577;padding:10px;font-size:13px;">No open SIM positions</div>
+      <div class="panel-title" style="font-size:12px;margin-top:16px;">Closed SIM Trades</div>
+      <div class="tblwrap"><table id="botSweepSimHistTbl" style="display:none;">
+        <thead><tr><th>Coin</th><th>Dir</th><th>Grade</th><th>Result</th><th>R</th><th>P&L</th></tr></thead>
+        <tbody id="botSweepSimHistRows"></tbody>
+      </table></div>
+    </div>
     <div id="botLiqSimWrap" style="display:none;">
       <div class="panel-title" style="font-size:13px;margin-top:26px;">&#x1F4A7; Liquidity SIM &mdash; $500 live-mirror &middot; premium-FVG entries &middot; 1:2 &middot; no 1R lock</div>
       <div id="botLiqSimSummary" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:14px 0;"></div>
@@ -1524,6 +1539,37 @@ const fakePnl=(d.history||[]).filter(h=>{
         '<td class="num" style="color:'+(good?'#2ecc71':'#E5484D')+';">$'+Math.round(h.pnl)+'</td></tr>';}).join('');
         lht.style.display='table';} else{lht.style.display='none';}
     } else { lw.style.display='none'; }
+  }
+  // ---- SWEEP SIM ($500 live-mirror) ----
+  var ss=d.sweepsim||{};
+  var sw=document.getElementById('botSweepSimWrap');
+  if(sw){
+    var sop=ss.positions||[], shi=ss.history||[];
+    if(sop.length||shi.length||typeof ss.equity==='number'){
+      sw.style.display='block';
+      var sw2=0; for(var q2=0;q2<shi.length;q2++) if((shi[q2].resultR||0)>0) sw2++;
+      var ssum=shi.reduce(function(a,x){return a+(x.resultR||0)},0);
+      document.getElementById('botSweepSimSummary').innerHTML=
+        sumCard('SIM Equity','$'+Math.round(ss.equity||500))+
+        sumCard('Open',sop.length)+
+        sumCard('Closed',shi.length)+
+        sumCard('Win %',shi.length?Math.round(100*sw2/shi.length)+'%':'—')+
+        sumCard('Total R',(ssum>=0?'+':'')+ssum.toFixed(1)+'R',ssum>=0)+
+        sumCard('P&L','$'+Math.round((ss.equity||500)-500),(ss.equity||500)>=500);
+      var sot=document.getElementById('botSweepSimOpenTbl'), sor=document.getElementById('botSweepSimOpenRows');
+      if(sop.length){sor.innerHTML=sop.map(function(o){var LONG=o.dir==='LONG';
+        return '<tr><td class="coin">'+o.sym.replace('USDT','')+'</td><td class="'+(LONG?'bull':'bear')+'">'+(LONG?'▲ LONG':'▼ SHORT')+'</td>'+
+        '<td>'+(o.grade||'A+')+'</td><td class="num">'+fmtP(o.entry)+'</td><td class="num">'+fmtP(o.sl)+'</td><td class="num">'+fmtP(o.tp)+'</td></tr>';}).join('');
+        sot.style.display='table';document.getElementById('botSweepSimOpenEmpty').style.display='none';}
+      else{sot.style.display='none';document.getElementById('botSweepSimOpenEmpty').style.display='block';}
+      var sht=document.getElementById('botSweepSimHistTbl'), shr=document.getElementById('botSweepSimHistRows');
+      if(shi.length){shr.innerHTML=shi.slice(-20).reverse().map(function(h){var LONG=h.dir==='LONG';var good=(h.resultR||0)>0;
+        return '<tr><td class="coin">'+h.sym.replace('USDT','')+'</td><td class="'+(LONG?'bull':'bear')+'">'+(LONG?'▲':'▼')+'</td>'+
+        '<td>'+(h.grade||'A+')+'</td><td style="font-size:11px;color:#8B94A7;">'+(h.exit_kind||'')+'</td>'+
+        '<td style="color:'+(good?'#2ecc71':'#E5484D')+';font-weight:700;">'+(h.resultR>=0?'+':'')+h.resultR+'R</td>'+
+        '<td class="num" style="color:'+(good?'#2ecc71':'#E5484D')+';">$'+Math.round(h.pnl)+'</td></tr>';}).join('');
+        sht.style.display='table';} else{sht.style.display='none';}
+    } else { sw.style.display='none'; }
   }
   // ---- VPS bot's last-scan signals (works on any connection) ----
   const ss=d.sweep_signals||[];
