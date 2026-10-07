@@ -402,20 +402,20 @@ footer.site-footer{ color:inherit; }
   <div id="botArea" style="display:none;">
     <div style="text-align:center;color:#8B94A7;font-size:12.5px;margin:12px 0 2px;" id="botStatus">Loading bot trades…</div>
     <div style="display:flex;justify-content:center;align-items:center;gap:12px;margin:6px 0 2px;"><span style="color:#8B94A7;font-size:12px;">⏱ next auto-scan in <b id="botClock" style="color:#f5d76e;font-variant-numeric:tabular-nums;">--:--</b> <span style="color:#5C6577;">(every 30 min from GitHub)</span></span><button class="btn2" style="padding:6px 14px;font-size:11px;" onclick="loadBotData()">⟳ REFRESH</button></div>
-    <div class="panel-title" style="font-size:13px;">⚡ 4H Sweep Bot — PAPER &#8377; · max 6</div>
-    <div id="botSummary" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:14px 0;"></div>
-    <div class="panel-title" style="font-size:13px;">Open Positions</div>
+    <div class="panel-title" style="font-size:13px;display:none;">⚡ 4H Sweep Bot — PAPER &#8377; · max 6</div>
+    <div id="botSummary" style="display:none;flex-wrap:wrap;gap:12px;justify-content:center;margin:14px 0;"></div>
+    <div class="panel-title" style="font-size:13px;display:none;">Open Positions</div>
     <div class="tblwrap"><table id="botOpenTbl" style="display:none;">
       <thead><tr><th>Coin</th><th>Dir</th><th>Grade</th><th>Entry</th><th>SL</th><th>TP</th><th>Live P&L</th><th>Opened</th></tr></thead>
       <tbody id="botOpenRows"></tbody>
     </table></div>
-    <div id="botOpenEmpty" style="text-align:center;color:#5C6577;padding:12px;font-size:13px;">No open positions</div>
-    <div class="panel-title" style="font-size:13px;margin-top:22px;">Closed Trades</div>
+    <div id="botOpenEmpty" style="display:none;text-align:center;color:#5C6577;padding:12px;font-size:13px;">No open positions</div>
+    <div class="panel-title" style="font-size:13px;margin-top:22px;display:none;">Closed Trades</div>
     <div class="tblwrap"><table id="botHistTbl" style="display:none;">
       <thead><tr><th>Coin</th><th>Dir</th><th>Grade</th><th>Result</th><th>P&L</th><th>Closed</th></tr></thead>
       <tbody id="botHistRows"></tbody>
     </table></div>
-    <div id="botExpand" style="text-align:center;margin:8px 0;"></div>
+    <div id="botExpand" style="display:none;text-align:center;margin:8px 0;"></div>
     <div id="botQWrap" style="display:none;">
       <div class="panel-title" style="font-size:13px;margin-top:26px;">&#x1F3AF; QML Bot &mdash; 15m SIM $ &middot; max 8</div>
       <div id="botQSummary" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:14px 0;"></div>
