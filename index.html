@@ -446,6 +446,7 @@ footer.site-footer{ color:inherit; }
         <thead><tr><th>Coin</th><th>Dir</th><th>Grade</th><th>Result</th><th>R</th><th>P&L</th></tr></thead>
         <tbody id="botSweepSimHistRows"></tbody>
       </table></div>
+      <div id="botSweepSimExpand" style="text-align:center;margin:6px 0;"></div>
     </div>
     <div id="botLiqSimWrap" style="display:none;">
       <div class="panel-title" style="font-size:13px;margin-top:26px;">&#x1F4A7; Liquidity SIM &mdash; $500 live-mirror &middot; premium-FVG entries &middot; 1:2 &middot; no 1R lock</div>
@@ -461,6 +462,7 @@ footer.site-footer{ color:inherit; }
         <thead><tr><th>Coin</th><th>Dir</th><th>Result</th><th>R</th><th>P&L</th></tr></thead>
         <tbody id="botLiqSimHistRows"></tbody>
       </table></div>
+      <div id="botLiqSimExpand" style="text-align:center;margin:6px 0;"></div>
     </div>
     <div id="botReportWrap" style="display:none;">
       <div class="panel-title" style="font-size:13px;margin-top:26px;">&#x1F4C8; QML Analytics &mdash; Shadow Models &amp; Funnel &middot; v3</div>
@@ -1197,7 +1199,7 @@ function scheduleLiq(){
 
 
 // ===== 📋 SIGNAL LEDGER (auto trade journal) =====
-let SIG_HIST=[], LEDGER_EXPAND={sig:false,qml:false,bot:false,botq:false};
+let SIG_HIST=[], LEDGER_EXPAND={sig:false,qml:false,bot:false,botq:false,liqsim:false,sweepsim:false};
 function saveScanCache(){ try{ localStorage.setItem('ba_lastscan', JSON.stringify({hits:lastScanHits.slice(0,60), time:Date.now()})); }catch(e){} }
 function saveQmlCache(){ try{ localStorage.setItem('ba_lastqml', JSON.stringify({hits:lastQmlHits.slice(0,60), time:Date.now()})); }catch(e){} }
 function loadSigHist(){ try{ SIG_HIST=JSON.parse(localStorage.getItem('ba_sighist'))||[]; }catch(e){ SIG_HIST=[]; } }
@@ -1509,21 +1511,21 @@ const fakePnl=(d.history||[]).filter(h=>{
     }
   }
   // ---- LIQ SIM ($500 live-mirror) ----
-  var ls=d.liqsim||{};
+  var lqs=d.liqsim||{};
   var lw=document.getElementById('botLiqSimWrap');
   if(lw){
-    var lop=ls.positions||[], lhi=ls.history||[];
-    if(lop.length||lhi.length||typeof ls.equity==='number'){
+    var lop=lqs.positions||[], lhi=lqs.history||[];
+    if(lop.length||lhi.length||typeof lqs.equity==='number'){
       lw.style.display='block';
-      var lw2=0; for(var q=0;q<lhi.length;q++) if((lhi[q].resultR||0)>0) lw2++;
+      var lw2=0; for(var li=0;li<lhi.length;li++) if((lhi[li].resultR||0)>0) lw2++;
       var lsum=lhi.reduce(function(a,x){return a+(x.resultR||0)},0);
       document.getElementById('botLiqSimSummary').innerHTML=
-        sumCard('SIM Equity','$'+Math.round(ls.equity||500))+
+        sumCard('SIM Equity','$'+Math.round(lqs.equity||500))+
         sumCard('Open',lop.length)+
         sumCard('Closed',lhi.length)+
         sumCard('Win %',lhi.length?Math.round(100*lw2/lhi.length)+'%':'—')+
         sumCard('Total R',(lsum>=0?'+':'')+lsum.toFixed(1)+'R',lsum>=0)+
-        sumCard('P&L','$'+Math.round((ls.equity||500)-500),(ls.equity||500)>=500);
+        sumCard('P&L','$'+Math.round((lqs.equity||500)-500),(lqs.equity||500)>=500);
       var lot=document.getElementById('botLiqSimOpenTbl'), lor=document.getElementById('botLiqSimOpenRows');
       if(lop.length){lor.innerHTML=lop.map(function(o){var LONG=o.dir==='LONG';
         return '<tr><td class="coin">'+o.sym.replace('USDT','')+'</td><td class="'+(LONG?'bull':'bear')+'">'+(LONG?'▲':'▼')+'</td>'+
@@ -1532,30 +1534,33 @@ const fakePnl=(d.history||[]).filter(h=>{
         lot.style.display='table';document.getElementById('botLiqSimOpenEmpty').style.display='none';}
       else{lot.style.display='none';document.getElementById('botLiqSimOpenEmpty').style.display='block';}
       var lht=document.getElementById('botLiqSimHistTbl'), lhr=document.getElementById('botLiqSimHistRows');
-      if(lhi.length){lhr.innerHTML=lhi.slice(-20).reverse().map(function(h){var LONG=h.dir==='LONG';var good=(h.resultR||0)>0;
+      if(lhi.length){var lshow=LEDGER_EXPAND.liqsim?lhi.slice(-45):lhi.slice(-5);
+        lhr.innerHTML=lshow.reverse().map(function(h){var LONG=h.dir==='LONG';var good=(h.resultR||0)>0;
         return '<tr><td class="coin">'+h.sym.replace('USDT','')+'</td><td class="'+(LONG?'bull':'bear')+'">'+(LONG?'▲':'▼')+'</td>'+
         '<td style="font-size:11px;color:#8B94A7;">'+(h.exit_kind||'')+'</td>'+
         '<td style="color:'+(good?'#2ecc71':'#E5484D')+';font-weight:700;">'+(h.resultR>=0?'+':'')+h.resultR+'R</td>'+
         '<td class="num" style="color:'+(good?'#2ecc71':'#E5484D')+';">$'+Math.round(h.pnl)+'</td></tr>';}).join('');
-        lht.style.display='table';} else{lht.style.display='none';}
+        lht.style.display='table';
+        document.getElementById('botLiqSimExpand').innerHTML=lhi.length>5?('<button class="btn2" style="font-size:11px;padding:5px 14px;" onclick="LEDGER_EXPAND.liqsim=!LEDGER_EXPAND.liqsim; renderBot();">'+(LEDGER_EXPAND.liqsim?'▲ Collapse':'▼ Show all '+lhi.length)+'</button>'):'';
+      } else{lht.style.display='none'; document.getElementById('botLiqSimExpand').innerHTML='';}
     } else { lw.style.display='none'; }
   }
   // ---- SWEEP SIM ($500 live-mirror) ----
-  var ss=d.sweepsim||{};
+  var sws=d.sweepsim||{};
   var sw=document.getElementById('botSweepSimWrap');
   if(sw){
-    var sop=ss.positions||[], shi=ss.history||[];
-    if(sop.length||shi.length||typeof ss.equity==='number'){
+    var sop=sws.positions||[], shi=sws.history||[];
+    if(sop.length||shi.length||typeof sws.equity==='number'){
       sw.style.display='block';
-      var sw2=0; for(var q2=0;q2<shi.length;q2++) if((shi[q2].resultR||0)>0) sw2++;
+      var sww=0; for(var sq=0;sq<shi.length;sq++) if((shi[sq].resultR||0)>0) sww++;
       var ssum=shi.reduce(function(a,x){return a+(x.resultR||0)},0);
       document.getElementById('botSweepSimSummary').innerHTML=
-        sumCard('SIM Equity','$'+Math.round(ss.equity||500))+
+        sumCard('SIM Equity','$'+Math.round(sws.equity||500))+
         sumCard('Open',sop.length)+
         sumCard('Closed',shi.length)+
-        sumCard('Win %',shi.length?Math.round(100*sw2/shi.length)+'%':'—')+
+        sumCard('Win %',shi.length?Math.round(100*sww/shi.length)+'%':'—')+
         sumCard('Total R',(ssum>=0?'+':'')+ssum.toFixed(1)+'R',ssum>=0)+
-        sumCard('P&L','$'+Math.round((ss.equity||500)-500),(ss.equity||500)>=500);
+        sumCard('P&L','$'+Math.round((sws.equity||500)-500),(sws.equity||500)>=500);
       var sot=document.getElementById('botSweepSimOpenTbl'), sor=document.getElementById('botSweepSimOpenRows');
       if(sop.length){sor.innerHTML=sop.map(function(o){var LONG=o.dir==='LONG';
         return '<tr><td class="coin">'+o.sym.replace('USDT','')+'</td><td class="'+(LONG?'bull':'bear')+'">'+(LONG?'▲ LONG':'▼ SHORT')+'</td>'+
@@ -1563,12 +1568,15 @@ const fakePnl=(d.history||[]).filter(h=>{
         sot.style.display='table';document.getElementById('botSweepSimOpenEmpty').style.display='none';}
       else{sot.style.display='none';document.getElementById('botSweepSimOpenEmpty').style.display='block';}
       var sht=document.getElementById('botSweepSimHistTbl'), shr=document.getElementById('botSweepSimHistRows');
-      if(shi.length){shr.innerHTML=shi.slice(-20).reverse().map(function(h){var LONG=h.dir==='LONG';var good=(h.resultR||0)>0;
+      if(shi.length){var sshow=LEDGER_EXPAND.sweepsim?shi.slice(-45):shi.slice(-5);
+        shr.innerHTML=sshow.reverse().map(function(h){var LONG=h.dir==='LONG';var good=(h.resultR||0)>0;
         return '<tr><td class="coin">'+h.sym.replace('USDT','')+'</td><td class="'+(LONG?'bull':'bear')+'">'+(LONG?'▲':'▼')+'</td>'+
         '<td>'+(h.grade||'A+')+'</td><td style="font-size:11px;color:#8B94A7;">'+(h.exit_kind||'')+'</td>'+
         '<td style="color:'+(good?'#2ecc71':'#E5484D')+';font-weight:700;">'+(h.resultR>=0?'+':'')+h.resultR+'R</td>'+
         '<td class="num" style="color:'+(good?'#2ecc71':'#E5484D')+';">$'+Math.round(h.pnl)+'</td></tr>';}).join('');
-        sht.style.display='table';} else{sht.style.display='none';}
+        sht.style.display='table';
+        document.getElementById('botSweepSimExpand').innerHTML=shi.length>5?('<button class="btn2" style="font-size:11px;padding:5px 14px;" onclick="LEDGER_EXPAND.sweepsim=!LEDGER_EXPAND.sweepsim; renderBot();">'+(LEDGER_EXPAND.sweepsim?'▲ Collapse':'▼ Show all '+shi.length)+'</button>'):'';
+      } else{sht.style.display='none'; document.getElementById('botSweepSimExpand').innerHTML='';}
     } else { sw.style.display='none'; }
   }
   // ---- VPS bot's last-scan signals (works on any connection) ----
