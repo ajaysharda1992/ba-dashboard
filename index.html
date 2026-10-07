@@ -383,7 +383,7 @@ footer.site-footer{ color:inherit; }
         <option value="chg">Sort: Biggest impulse</option>
       </select>
     </div>
-    <div id="liqStatus" style="text-align:center;color:#8B94A7;padding:12px;font-size:13.5px;">Impulsive moves take liquidity → price snaps back. Entry = 50% of the impulse (limit order). Refreshes every 15 min.</div>
+    <div id="liqStatus" style="text-align:center;color:#8B94A7;padding:12px;font-size:13.5px;">V2 (ERL->IRL): impulse RAID takes the prior 20-bar high/low (external liquidity) -> entry at the PREMIUM-half FVG (internal liquidity; indecision-gapped, no runaway, no rejection-collision) -> SL beyond the raid extreme -> TP at 2R. Hourly.</div>
     <div class="prog" id="liqProg" style="display:none;"></div>
     <div class="tblwrap"><table id="liqTbl" style="display:none;">
       <thead><tr><th>Coin</th><th>Signal</th><th>Trade</th><th>Entry · SL · TP</th><th>Status</th><th>🐋 Inst.</th><th>Live</th></tr></thead>
@@ -431,6 +431,21 @@ footer.site-footer{ color:inherit; }
         <tbody id="botQHistRows"></tbody>
       </table></div>
       <div id="botQExpand" style="text-align:center;margin:8px 0;"></div>
+    </div>
+    <div id="botLiqSimWrap" style="display:none;">
+      <div class="panel-title" style="font-size:13px;margin-top:26px;">&#x1F4A7; Liquidity SIM &mdash; $500 live-mirror &middot; premium-FVG entries &middot; 1:2 &middot; no 1R lock</div>
+      <div id="botLiqSimSummary" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:14px 0;"></div>
+      <div class="panel-title" style="font-size:12px;">Open SIM Positions</div>
+      <div class="tblwrap"><table id="botLiqSimOpenTbl" style="display:none;">
+        <thead><tr><th>Coin</th><th>Dir</th><th>Entry</th><th>SL</th><th>TP</th><th>State</th></tr></thead>
+        <tbody id="botLiqSimOpenRows"></tbody>
+      </table></div>
+      <div id="botLiqSimOpenEmpty" style="text-align:center;color:#5C6577;padding:10px;font-size:13px;">No open SIM positions</div>
+      <div class="panel-title" style="font-size:12px;margin-top:16px;">Closed SIM Trades</div>
+      <div class="tblwrap"><table id="botLiqSimHistTbl" style="display:none;">
+        <thead><tr><th>Coin</th><th>Dir</th><th>Result</th><th>R</th><th>P&L</th></tr></thead>
+        <tbody id="botLiqSimHistRows"></tbody>
+      </table></div>
     </div>
     <div id="botReportWrap" style="display:none;">
       <div class="panel-title" style="font-size:13px;margin-top:26px;">&#x1F4C8; QML Analytics &mdash; Shadow Models &amp; Funnel &middot; v3</div>
@@ -1443,7 +1458,7 @@ const fakePnl=(d.history||[]).filter(h=>{
         return `<tr><td class="coin">${s.sym.replace('USDT','')}</td>
          <td class="${LONG?'bull':'bear'}" style="font-weight:700;">${LONG?'🟢 BUY':'🔴 SELL'}</td>
          <td style="white-space:nowrap;font-size:12px;">${s.state==='ACTIVE'?'<span style="color:#2ecc71;font-weight:700;">✅ triggered</span>':'<span style="color:#C9A227;">⏳ waiting pullback</span>'}</td>
-         <td class="num">${fmtP(s.entry)} · <span style="color:#E5484D;">${fmtP(s.sl)}</span> · <span style="color:#2ecc71;">${fmtP(s.tp)}</span><br><span style="color:#8B94A7;font-size:11px;">R:R ${s.rr}</span></td>
+         <td class="num">${fmtP(s.entry)} · <span style="color:#E5484D;">${fmtP(s.sl)}</span> · <span style="color:#2ecc71;">${fmtP(s.tp)}</span><br><span style="color:#C9A227;font-size:11px;">FVG ${s.fvg_lo!=null?fmtP(s.fvg_lo)+' - '+fmtP(s.fvg_hi):'n/a'}</span> <span style="color:#8B94A7;font-size:11px;">R:R ${s.rr}</span></td>
          <td class="num">${s.volX.toFixed(1)}×</td></tr>`;
       }).join('');
       lTbl.style.display='table';
@@ -1477,6 +1492,38 @@ const fakePnl=(d.history||[]).filter(h=>{
       qTbl.style.display='none';
       document.getElementById('botQmlSigStatus').textContent='VPS QML bot: no patterns at last scan — refreshes every 30 min';
     }
+  }
+  // ---- LIQ SIM ($500 live-mirror) ----
+  var ls=d.liqsim||{};
+  var lw=document.getElementById('botLiqSimWrap');
+  if(lw){
+    var lop=ls.positions||[], lhi=ls.history||[];
+    if(lop.length||lhi.length||typeof ls.equity==='number'){
+      lw.style.display='block';
+      var lw2=0; for(var q=0;q<lhi.length;q++) if((lhi[q].resultR||0)>0) lw2++;
+      var lsum=lhi.reduce(function(a,x){return a+(x.resultR||0)},0);
+      document.getElementById('botLiqSimSummary').innerHTML=
+        sumCard('SIM Equity','$'+Math.round(ls.equity||500))+
+        sumCard('Open',lop.length)+
+        sumCard('Closed',lhi.length)+
+        sumCard('Win %',lhi.length?Math.round(100*lw2/lhi.length)+'%':'—')+
+        sumCard('Total R',(lsum>=0?'+':'')+lsum.toFixed(1)+'R',lsum>=0)+
+        sumCard('P&L','$'+Math.round((ls.equity||500)-500),(ls.equity||500)>=500);
+      var lot=document.getElementById('botLiqSimOpenTbl'), lor=document.getElementById('botLiqSimOpenRows');
+      if(lop.length){lor.innerHTML=lop.map(function(o){var LONG=o.dir==='LONG';
+        return '<tr><td class="coin">'+o.sym.replace('USDT','')+'</td><td class="'+(LONG?'bull':'bear')+'">'+(LONG?'▲':'▼')+'</td>'+
+        '<td class="num">'+fmtP(o.entry)+'</td><td class="num">'+fmtP(o.sl)+'</td><td class="num">'+fmtP(o.tp)+'</td>'+
+        '<td>'+(o.filled?'🟢 filled':'⏳ resting')+'</td></tr>';}).join('');
+        lot.style.display='table';document.getElementById('botLiqSimOpenEmpty').style.display='none';}
+      else{lot.style.display='none';document.getElementById('botLiqSimOpenEmpty').style.display='block';}
+      var lht=document.getElementById('botLiqSimHistTbl'), lhr=document.getElementById('botLiqSimHistRows');
+      if(lhi.length){lhr.innerHTML=lhi.slice(-20).reverse().map(function(h){var LONG=h.dir==='LONG';var good=(h.resultR||0)>0;
+        return '<tr><td class="coin">'+h.sym.replace('USDT','')+'</td><td class="'+(LONG?'bull':'bear')+'">'+(LONG?'▲':'▼')+'</td>'+
+        '<td style="font-size:11px;color:#8B94A7;">'+(h.exit_kind||'')+'</td>'+
+        '<td style="color:'+(good?'#2ecc71':'#E5484D')+';font-weight:700;">'+(h.resultR>=0?'+':'')+h.resultR+'R</td>'+
+        '<td class="num" style="color:'+(good?'#2ecc71':'#E5484D')+';">$'+Math.round(h.pnl)+'</td></tr>';}).join('');
+        lht.style.display='table';} else{lht.style.display='none';}
+    } else { lw.style.display='none'; }
   }
   // ---- VPS bot's last-scan signals (works on any connection) ----
   const ss=d.sweep_signals||[];
