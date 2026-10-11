@@ -433,7 +433,7 @@ footer.site-footer{ color:inherit; }
       <div id="botQExpand" style="text-align:center;margin:8px 0;"></div>
     </div>
     <div id="botSweepSimWrap" style="display:none;">
-      <div class="panel-title" style="font-size:13px;margin-top:26px;">&#x26A1; 4H Sweep SIM &mdash; $500 live-mirror &middot; A+ only &middot; BTC-regime aligned &middot; 1:2 &middot; no lock</div>
+      <div class="panel-title" style="font-size:13px;margin-top:26px;">&#x26A1; 4H Sweep LIVE &mdash; REAL &middot; founder sweep v2 &middot; $15 risk &middot; max 3 &middot; 1:2 &middot; no lock</div>
       <div id="botSweepSimSummary" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:14px 0;"></div>
       <div class="panel-title" style="font-size:12px;">Open SIM Positions</div>
       <div class="tblwrap"><table id="botSweepSimOpenTbl" style="display:none;">
@@ -1546,7 +1546,7 @@ const fakePnl=(d.history||[]).filter(h=>{
     } else { lw.style.display='none'; }
   }
   // ---- SWEEP SIM ($500 live-mirror) ----
-  var sws=d.sweepsim||{};
+  var sws=d.sweeplive||d.sweepsim||{};
   var sw=document.getElementById('botSweepSimWrap');
   if(sw){
     var sop=sws.positions||[], shi=sws.history||[];
